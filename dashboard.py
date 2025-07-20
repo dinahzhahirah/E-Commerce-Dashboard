@@ -509,25 +509,21 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
     ])
     
     fig_aspect_bar.update_layout(
+        yaxis=dict(
+            automargin=True,
+            tickfont=dict(size=16, angle=0),  # angle=0 agar horizontal
+            showgrid=False
+        ),
+        xaxis=dict(
+            showgrid=False,
+            tickfont=dict(size=14)
+        ),
+        plot_bgcolor='white',
         barmode='stack',
         title='Sentiment Distribution by Aspect (Positive vs Negative)',
-        xaxis_title='Count',
-        yaxis_title='Aspect',
-        title_font=dict(size=20),
-        xaxis=dict(
-            showgrid=False,  # Hapus gridline x
-            title_font=dict(size=16),
-            tickfont=dict(size=14)
-        ),
-        yaxis=dict(
-            showgrid=False,  # Hapus gridline y
-            title_font=dict(size=16),
-            tickfont=dict(size=14)
-        ),
-        plot_bgcolor='white',  # Warna background bersih
-        height=400
+        title_font=dict(size=20)
     )
-    
+
     st.plotly_chart(fig_aspect_bar, use_container_width=True)
     
     # Bigram Analysis
