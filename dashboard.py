@@ -506,13 +506,21 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
                 name='Positive',
                 x=aspect_df['Aspect'],
                 y=aspect_df['Positive'],
-                marker_color='#d2601a'
+                marker_color='#d2601a',
+                text=aspect_df['Positive'],
+                textposition='inside',
+                insidetextanchor='start',
+                textfont=dict(color='white', size=12)
             ),
             go.Bar(
                 name='Negative',
                 x=aspect_df['Aspect'],
                 y=aspect_df['Negative'],
-                marker_color='#f4b183'
+                marker_color='#f4b183',
+                text=aspect_df['Negative'],
+                textposition='inside',
+                insidetextanchor='end',
+                textfont=dict(color='black', size=12)
             )
         ])
         
