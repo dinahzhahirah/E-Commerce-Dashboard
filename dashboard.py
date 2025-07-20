@@ -451,18 +451,16 @@ def menu_delivery_evaluation(orders, customers, geolocation):
     st.plotly_chart(fig_delay_best, use_container_width=True)
 
 def menu_sentiment_analysis(order_reviews, order_items, products, product_translation, nlp, stop_words):
-    st.header("MENU 2: Analisis Sentimen Aspek 'Pengiriman' dan 'Produk'")
+    """Menu 2: Sentiment Analysis"""
+    st.header("Menu 2: Sentiment Analysis")
     
     # Get preprocessed data from session state
     if 'df' not in st.session_state:
-        st.error("Data belum diproses. Silakan refresh halaman.")
+        st.error("Data not processed. Please refresh the page.")
         return
     
     df = st.session_state.df
     
-    st.subheader("Sentiment Analysis Overview")
-    
-    # Display basic sentiment statistics
     col1, col2 = st.columns(2)
     
     with col1:
@@ -471,189 +469,46 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
         fig_sentiment = px.pie(
             values=sentiment_counts.values,
             names=sentiment_counts.index,
-            title='Sentiment Distribution',
-            color_discrete_map={
-                'Positive': 'green',
-                'Neutral': 'yellow',
-                'Negative': 'red'
-            }
+            title='Sentiment Distribution'
         )
         st.plotly_chart(fig_sentiment, use_container_width=True)
     
     with col2:
-        # Aspect-based sentiment analysis
-        aspek_dict = {
-            "Buyer Preferences": ["gostei", "não gostei", "amei", "odiei", "adoro", "detesto"],
-            "Product Quality": ["produto", "qualidade", "defeito", "bom", "ruim", "quebrado"],
-            "Delivery Performance": ["entrega", "prazo", "transportadora", "rápido", "atrasado"]
-        }
-
-        def klasifikasi_sentimen(text):
-            if pd.isna(text):
-                return {"Buyer Preferences": 0, "Product Quality": 0, "Delivery Performance": 0}
-            
-            text = str(text).lower()
-            hasil = {"Buyer Preferences": 0, "Product Quality": 0, "Delivery Performance": 0}
-            
-            for aspek, kata_kunci in aspek_dict.items():
-                for kata in kata_kunci:
-                    if kata in text:
-                        hasil[aspek] += 1
-            return hasil
-
-        # Process ABSA
-        df["aspek_sentimen"] = df["review_comment_message"].apply(klasifikasi_sentimen)
-
-        # Calculate aspect counts
-        aspect_counts = {
-            "Buyer Preferences": 0,
-            "Product Quality": 0,
-            "Delivery Performance": 0
-        }
-
-        for hasil in df["aspek_sentimen"]:
-            for aspek, count in hasil.items():
-                aspect_counts[aspek] += count
-
-        # Create bar chart
-        fig_aspects = px.bar(
-            x=list(aspect_counts.keys()),
-            y=list(aspect_counts.values()),
-            title='Aspect-Based Sentiment Distribution',
-            labels={'x': 'Aspect', 'y': 'Keyword Frequency'},
-            color=list(aspect_counts.values()),
-            color_continuous_scale='viridis'
+        # Review score distribution
+        fig_scores = px.histogram(
+            df, 
+            x='review_score',
+            title='Review Score Distribution',
+            nbins=5
         )
-        st.plotly_chart(fig_aspects, use_container_width=True)
+        st.plotly_chart(fig_scores, use_container_width=True)
     
     # Bigram Analysis
-    st.subheader("🔍 Bigram Analysis (Noun + Adjective)")
+    st.subheader("🔍 Bigram Analysis")
     
-    # Collect all bigrams
     all_bigrams = []
     for bigrams in df['noun_adj_bigrams']:
-        if bigrams:  # Check if not empty
+        if bigrams:
             all_bigrams.extend(bigrams)
     
     if all_bigrams:
         bigram_counts = Counter(all_bigrams)
-        top_bigrams = dict(bigram_counts.most_common(20))
+        top_bigrams = dict(bigram_counts.most_common(15))
         
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # WordCloud
-            if top_bigrams:
-                wc = WordCloud(
-                    width=800, 
-                    height=400, 
-                    background_color='white',
-                    colormap='viridis'
-                ).generate_from_frequencies(top_bigrams)
-                
-                fig_wc, ax = plt.subplots(figsize=(10, 6))
-                ax.imshow(wc, interpolation='bilinear')
-                ax.axis('off')
-                ax.set_title('WordCloud of Noun + Adjective Bigrams', fontsize=16)
-                st.pyplot(fig_wc)
-        
-        with col2:
-            # Top bigrams bar chart
-            if len(top_bigrams) > 0:
-                bigram_df = pd.DataFrame(list(top_bigrams.items()), columns=['Bigram', 'Count'])
-                bigram_df = bigram_df.sort_values('Count', ascending=True).tail(15)
-                
-                fig_bigram = px.bar(
-                    bigram_df,
-                    x='Count',
-                    y='Bigram',
-                    orientation='h',
-                    title='Top 15 Noun + Adjective Bigrams',
-                    color='Count',
-                    color_continuous_scale='viridis'
-                )
-                fig_bigram.update_layout(height=500)
-                st.plotly_chart(fig_bigram, use_container_width=True)
-    else:
-        st.warning("No bigrams found in the review data.")
-
-    # Product analysis
-    st.subheader("🛒 Product Performance Analysis")
-    
-    # Merge product data
-    product_reviews = order_items.merge(order_reviews, on='order_id', how='left')
-    product_reviews = product_reviews.merge(products, on='product_id', how='left')
-    product_reviews = product_reviews.merge(product_translation, on='product_category_name', how='left')
-    
-    # Calculate metrics by category
-    category_metrics = product_reviews.groupby('product_category_name_english').agg({
-        'order_id': 'count',
-        'review_score': 'mean'
-    }).reset_index()
-    category_metrics.columns = ['Category', 'Total_Sales', 'Avg_Review']
-    category_metrics = category_metrics.dropna().sort_values('Total_Sales', ascending=False).head(15)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("📈 Top Categories by Sales Volume")
-        fig_sales = px.bar(
-            category_metrics.head(10),
-            x='Total_Sales',
-            y='Category',
-            orientation='h',
-            title='Top 10 Categories by Sales'
-        )
-        fig_sales.update_layout(height=400)
-        st.plotly_chart(fig_sales, use_container_width=True)
-    
-    with col2:
-        st.subheader("⭐ Top Categories by Review Score")
-        fig_review = px.bar(
-            category_metrics.sort_values('Avg_Review', ascending=False).head(10),
-            x='Avg_Review',
-            y='Category',
-            orientation='h',
-            color='Avg_Review',
-            color_continuous_scale='Greens',
-            title='Top 10 Categories by Review Score'
-        )
-        fig_review.update_layout(height=400)
-        st.plotly_chart(fig_review, use_container_width=True)
-    
-    # Insights
-    st.subheader("🔍 Key Insights:")
-    
-    # Find categories with high volume but low reviews
-    problematic_categories = category_metrics[
-        (category_metrics['Total_Sales'] > category_metrics['Total_Sales'].quantile(0.7)) & 
-        (category_metrics['Avg_Review'] < category_metrics['Avg_Review'].median())
-    ].head(3)
-    
-    high_potential = category_metrics[
-        (category_metrics['Avg_Review'] > category_metrics['Avg_Review'].quantile(0.8)) & 
-        (category_metrics['Total_Sales'] < category_metrics['Total_Sales'].median())
-    ].head(3)
-    
-    insights = []
-    if len(problematic_categories) > 0:
-        prob_cats = ", ".join(problematic_categories['Category'].tolist())
-        insights.append(f"⚠️ Kategori volume tinggi tapi review rendah: {prob_cats} → Indikator overpromising")
-    
-    if len(high_potential) > 0:
-        pot_cats = ", ".join(high_potential['Category'].tolist())
-        insights.append(f"🚀 Kategori review tinggi tapi volume rendah: {pot_cats} → Potensi boost campaign")
-    
-    for insight in insights:
-        st.write(f"• {insight}")
-    
-    st.subheader("🎯 Dampak Bisnis:")
-    st.write("• **Langsung meningkatkan konversi dan kepuasan**")
-    st.write("• **Optimalkan alokasi iklan untuk produk berkualitas**")
+        if top_bigrams:
+            bigram_df = pd.DataFrame(list(top_bigrams.items()), columns=['Bigram', 'Count'])
+            fig_bigram = px.bar(
+                bigram_df.sort_values('Count', ascending=True),
+                x='Count',
+                y='Bigram',
+                orientation='h',
+                title='Top Bigrams (Noun + Adjective)'
+            )
+            st.plotly_chart(fig_bigram, use_container_width=True)
 
 def menu_market_expansion(orders, customers, order_reviews):
     """Menu 3: Market Expansion Opportunities"""
-    st.header("🔥 MENU 3: Identifikasi Peluang Ekspansi Pasar")
+    st.header("Menu 3: Market Expansion Opportunities")
     
     # Merge data
     market_data = orders.merge(customers, on='customer_id', how='left')
@@ -684,88 +539,41 @@ def menu_market_expansion(orders, customers, order_reviews):
     
     state_analysis['Market_Segment'] = state_analysis.apply(classify_quadrant, axis=1)
     
-    col1, col2 = st.columns(2)
+    # Scatter plot
+    fig_scatter = px.scatter(
+        state_analysis,
+        x='Avg_Review_Score',
+        y='Order_Count',
+        color='Market_Segment',
+        size='Order_Count',
+        hover_data=['State'],
+        title='Market Expansion Opportunities'
+    )
     
-    with col1:
-        st.subheader("📊 Market Opportunity Matrix")
-        
-        # Scatter plot
-        fig_scatter = px.scatter(
-            state_analysis,
-            x='Avg_Review_Score',
-            y='Order_Count',
-            color='Market_Segment',
-            size='Order_Count',
-            hover_data=['State'],
-            title='Market Expansion Opportunities',
-            labels={
-                'Avg_Review_Score': 'Average Review Score',
-                'Order_Count': 'Number of Orders'
-            },
-            color_discrete_map={
-                'Strong Market': 'green',
-                'Expansion Target': 'gold',
-                'Volume Leader': 'blue',
-                'Evaluate/Leave': 'red'
-            }
-        )
-        
-        # Add quadrant lines
-        fig_scatter.add_hline(y=median_orders, line_dash="dash", line_color="gray", opacity=0.5)
-        fig_scatter.add_vline(x=median_review, line_dash="dash", line_color="gray", opacity=0.5)
-        
-        st.plotly_chart(fig_scatter, use_container_width=True)
+    # Add quadrant lines
+    fig_scatter.add_hline(y=median_orders, line_dash="dash", line_color="gray", opacity=0.5)
+    fig_scatter.add_vline(x=median_review, line_dash="dash", line_color="gray", opacity=0.5)
     
-    with col2:
-            st.subheader("🟡 Expansion Targets (High Score - Low Volume)")
-            expansion_targets_detailed = state_analysis[state_analysis['Market_Segment'] == 'Expansion Target'].sort_values('Avg_Review_Score', ascending=False)
-            if len(expansion_targets_detailed) > 0:
-                st.dataframe(expansion_targets_detailed[['State', 'Order_Count', 'Avg_Review_Score']].head(10))
-            else:
-                st.write("No expansion targets identified.")
-        
-    # Insights
-    st.subheader("🔍 Key Insights:")
-        
-    # PERBAIKAN 1: Definisikan strong_markets
-    strong_markets = state_analysis[state_analysis['Market_Segment'] == 'Strong Market']
+    st.plotly_chart(fig_scatter, use_container_width=True)
     
-    insights = []
-    if len(expansion_targets_detailed) > 0:
-        top_targets = expansion_targets_detailed.head(3)['State'].tolist()
-        avg_score = expansion_targets_detailed.head(3)['Avg_Review_Score'].mean()
-        insights.append(f"🎯 Top expansion targets: {', '.join(top_targets)} dengan rata-rata review {avg_score:.2f}")
-        insights.append(f"📈 Wilayah ini memiliki pengalaman pengguna yang baik, tinggal ditingkatkan visibilitasnya")
-    
-    if len(strong_markets) > 0:
-        strong_count = len(strong_markets)
-        insights.append(f"💪 {strong_count} provinsi sudah menjadi pasar kuat dengan performa tinggi")
-    
-    for insight in insights:
-        st.write(f"• {insight}")
-    
-    st.subheader("🎯 Dampak Bisnis:")
-    st.write("• Perusahaan bisa **bertumbuh lebih cepat dengan risiko lebih rendah**")
-    st.write("• Ekspansi diarahkan ke **wilayah yang sudah terbukti punya respons positif**")
-    st.write("• Bisa memprioritaskan **alokasi iklan dan logistik ke wilayah potensial**")
+    # Show expansion targets
+    expansion_targets = state_analysis[state_analysis['Market_Segment'] == 'Expansion Target']
+    if len(expansion_targets) > 0:
+        st.subheader("🎯 Expansion Targets")
+        st.dataframe(expansion_targets.sort_values('Avg_Review_Score', ascending=False))
 
-# Main app
 def main():
     st.title("E-commerce Analytics Dashboard")
-    st.markdown("### Analisis Komprehensif untuk Optimasi Bisnis E-commerce")
+    st.markdown("### Comprehensive Analysis for E-commerce Business Optimization")
     
     # Load spaCy model and stopwords
-    nlp = load_spacy_model()
-    if nlp is None:
-        st.error("Failed to load spaCy model. Please install Portuguese model first.")
-        return
-    
+    nlp = install_and_load_spacy_model()  # Fixed function name
     stop_words = get_portuguese_stopwords()
     
     # Load data
     data = load_data()
     if data is None:
-        st.error("Failed to load data. Please check if data files are in the correct location.")
+        st.error("Failed to load data.")
         return
          
     orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers = data
@@ -785,10 +593,10 @@ def main():
     # Apply tokenization 
     df['tokens'] = df['review_comment_message'].apply(lambda x: clean_text(x, stop_words))
     
-    # PERBAIKAN 3: Extract noun + adjective bigrams dengan lambda
+    # Extract noun + adjective bigrams
     df['noun_adj_bigrams'] = df['tokens'].apply(lambda tokens: extract_noun_adj_bigrams(tokens, nlp))
 
-    # Simpan ke session_state
+    # Save to session_state
     st.session_state.df = df
 
     # KPI Summary
@@ -797,20 +605,20 @@ def main():
     # Sidebar
     st.sidebar.title("📋 Navigation")
     menu_option = st.sidebar.selectbox(
-        "Pilih Menu Analisis:",
+        "Choose Analysis Menu:",
         [
-            "🔥 Menu 1: Evaluasi Pengiriman",
-            "🔥 Menu 2: Analisis Sentimen",
-            "🔥 Menu 3: Peluang Ekspansi Pasar"
+            "🔥 Menu 1: Delivery Evaluation",
+            "🔥 Menu 2: Sentiment Analysis", 
+            "🔥 Menu 3: Market Expansion"
         ]
     )
 
-    # PERBAIKAN 2: Menu handler dengan parameter yang benar
-    if menu_option == "🔥 Menu 1: Evaluasi Pengiriman":
+    # Menu handlers
+    if menu_option == "🔥 Menu 1: Delivery Evaluation":
         menu_delivery_evaluation(orders, customers, geolocation)
-    elif menu_option == "🔥 Menu 2: Analisis Sentimen":
+    elif menu_option == "🔥 Menu 2: Sentiment Analysis":
         menu_sentiment_analysis(order_reviews, order_items, products, product_translation, nlp, stop_words)
-    elif menu_option == "🔥 Menu 3: Peluang Ekspansi Pasar":
+    elif menu_option == "🔥 Menu 3: Market Expansion":
         menu_market_expansion(orders, customers, order_reviews)
 
 if __name__ == "__main__":
