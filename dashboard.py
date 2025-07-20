@@ -108,68 +108,34 @@ def get_portuguese_stopwords():
 
 @st.cache_data
 def load_data():
-    """Load all datasets from Google Drive"""
+    """Load all datasets silently from Google Drive"""
     try:
-        # Check if data directory exists, if not create it and download
-        if not os.path.exists('data') or not os.listdir('data'):
-            st.info("Downloading data files from Google Drive...")
-            
-            # Create data directory if it doesn't exist
-            os.makedirs('data', exist_ok=True)
-            
-            # Download individual files from Google Drive
-            # Note: You need to make each file publicly accessible and get the file ID from sharing URL
-            # File ID Google Drive
-            drive_files = {
-                'customers_dataset.csv': '1MbHCiu8ZbJies0NQ0sTCV4_rESKuDvnJ',
-                'geolocation_dataset.csv': '1VK7B0Cm9RQmJIKljrvVirphZiTEZFdhH', 
-                'order_items_dataset.csv': '1TNfwU1jvMKNaLDRYpA9TDvU77gaAQDmT',
-                'order_payments_dataset.csv': '14b96-g7a2rnM47Ml9axgbcyGMmziW5Md',
-                'order_reviews_dataset.csv': '1hPfX7FO6jHW171FYeTN4QS39hS0K_4CX',
-                'orders_dataset.csv': '1dPxq9qXTSZjrdXQk8IJE3i4U9EEveuw0',
-                'product_category_name_translation.csv': '1H-loSFk7Ef4C6ikjcseb5_kGj7uZ3__l',
-                'products_dataset.csv': '1N8KxKyxHtvae_Gyw6d8btBZBUMxqVRC2',
-                'sellers_dataset.csv': '1DAhnXFWFLy84dgsGkCapZB5_2c9x4F_U'
-            }
-            
-            # Buat folder data jika belum ada
-            os.makedirs('data', exist_ok=True)
-            
-            # Unduh file jika belum ada
-            for filename, file_id in drive_files.items():
-                filepath = f'data/{filename}'
-                if not os.path.exists(filepath):
-                    url = f'https://drive.google.com/uc?id={file_id}'
-                    gdown.download(url, filepath, quiet=False)
+        os.makedirs('data', exist_ok=True)
 
-        # Load datasets
-        datasets = {}
-        required_files = [
-            'customers_dataset.csv',
-            'geolocation_dataset.csv', 
-            'order_items_dataset.csv',
-            'order_payments_dataset.csv',
-            'order_reviews_dataset.csv',
-            'orders_dataset.csv',
-            'product_category_name_translation.csv',
-            'products_dataset.csv',
-            'sellers_dataset.csv'
-        ]
-        
-        # Check if all required files exist
-        missing_files = []
-        for filename in required_files:
+        drive_files = {
+            'customers_dataset.csv': '1MbHCiu8ZbJies0NQ0sTCV4_rESKuDvnJ',
+            'geolocation_dataset.csv': '1VK7B0Cm9RQmJIKljrvVirphZiTEZFdhH',
+            'order_items_dataset.csv': '1TNfwU1jvMKNaLDRYpA9TDvU77gaAQDmT',
+            'order_payments_dataset.csv': '14b96-g7a2rnM47Ml9axgbcyGMmziW5Md',
+            'order_reviews_dataset.csv': '1hPfX7FO6jHW171FYeTN4QS39hS0K_4CX',
+            'orders_dataset.csv': '1dPxq9qXTSZjrdXQk8IJE3i4U9EEveuw0',
+            'product_category_name_translation.csv': '1H-loSFk7Ef4C6ikjcseb5_kGj7uZ3__l',
+            'products_dataset.csv': '1N8KxKyxHtvae_Gyw6d8btBZBUMxqVRC2',
+            'sellers_dataset.csv': '1DAhnXFWFLy84dgsGkCapZB5_2c9x4F_U'
+        }
+
+        for filename, file_id in drive_files.items():
             filepath = f'data/{filename}'
             if not os.path.exists(filepath):
-                missing_files.append(filename)
-        
-        if missing_files:
-            st.error(f"Missing required files: {', '.join(missing_files)}")
-            st.info("Please download the files manually and place them in the 'data' directory, or provide the correct Google Drive file IDs.")
-            return None
-        
-        # Load all datasets
-        st.info("Loading datasets...")
+                url = f'https://drive.google.com/uc?export=download&id={file_id}'
+                gdown.download(url, filepath, quiet=True)
+
+        required_files = list(drive_files.keys())
+        for filename in required_files:
+            if not os.path.exists(f'data/{filename}'):
+                return None  # Exit if any file missing
+
+        # Load CSVs
         customers = pd.read_csv('data/customers_dataset.csv')
         geolocation = pd.read_csv('data/geolocation_dataset.csv')
         order_items = pd.read_csv('data/order_items_dataset.csv')
@@ -179,14 +145,10 @@ def load_data():
         product_translation = pd.read_csv('data/product_category_name_translation.csv')
         products = pd.read_csv('data/products_dataset.csv')
         sellers = pd.read_csv('data/sellers_dataset.csv')
-        
-        st.success("All datasets loaded successfully!")
-        
+
         return orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers
-        
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        st.info("Please make sure all data files are in the 'data' directory")
+
+    except:
         return None
 
 def preprocess_data(orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers):
