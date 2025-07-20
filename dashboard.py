@@ -198,23 +198,23 @@ def clean_text(text, stop_words):
 
 def extract_noun_adj_bigrams(tokens, nlp):
     """Extract noun + adjective bigrams using spaCy or fallback"""
-    if not tokens or nlp is None:
+    if not tokens:
         return []
-    
+
     try:
-        text = " ".join(tokens)
-        doc = nlp(text)
-        bigrams = []
-
-        for i in range(len(doc) - 1):
-            token1 = doc[i]
-            token2 = doc[i + 1]
-
-            # Check if first token is noun and second is adjective
-            if token1.pos_ in ["NOUN", "PROPN"] and token2.pos_ == "ADJ":
-                bigrams.append(f"{token1.text} {token2.text}")
-
-        return bigrams
+        if isinstance(nlp, FallbackNLP):
+            # Fallback: ambil semua pasangan 2 kata (asal panjang token > 1)
+            return [f"{tokens[i]} {tokens[i+1]}" for i in range(len(tokens)-1)]
+        else:
+            text = " ".join(tokens)
+            doc = nlp(text)
+            bigrams = []
+            for i in range(len(doc) - 1):
+                token1 = doc[i]
+                token2 = doc[i + 1]
+                if token1.pos_ in ["NOUN", "PROPN"] and token2.pos_ in ["ADJ", "ADV"]:
+                    bigrams.append(f"{token1.text} {token2.text}")
+            return bigrams
     except:
         return []
 
