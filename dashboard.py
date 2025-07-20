@@ -25,15 +25,38 @@ st.set_page_config(
 )
 
 # Load spaCy Portuguese model
+import streamlit as st
+import subprocess
+import sys
+import os
+
 @st.cache_resource
-def load_spacy_model():
-    """Load spaCy Portuguese model"""
+def install_and_load_spacy_model():
+    """Install and load spaCy Portuguese model"""
     try:
+        import spacy
+        # Try to load the model
         nlp = spacy.load("pt_core_news_sm")
         return nlp
     except OSError:
-        st.error("Portuguese spaCy model not found. Please install it with: python -m spacy download pt_core_news_sm")
-        return None
+        # Model not found, try to install it
+        try:
+            st.info("Installing Portuguese language model for text analysis...")
+            subprocess.check_call([
+                sys.executable, "-m", "spacy", "download", "pt_core_news_sm"
+            ])
+            # Try to load again after installation
+            import spacy
+            nlp = spacy.load("pt_core_news_sm")
+            st.success("Portuguese language model installed successfully!")
+            return nlp
+        except Exception as e:
+            st.warning("Could not install Portuguese language model. Some text analysis features may be limited.")
+            st.error(f"Error: {e}")
+            return None
+
+# Gunakan function ini di aplikasi Anda
+nlp = install_and_load_spacy_model()
 
 # Get Portuguese stopwords
 @st.cache_data
