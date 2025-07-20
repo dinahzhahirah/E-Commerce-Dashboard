@@ -482,14 +482,16 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
 
         # Calculate aspect counts
         aspect_counts = {
-            "Buyer Preferences": 0,
-            "Product Quality": 0,
-            "Delivery Performance": 0
+            "Buyer Preferences": {"Positive": 0, "Neutral": 0, "Negative": 0},
+            "Product Quality": {"Positive": 0, "Neutral": 0, "Negative": 0},
+            "Delivery Performance": {"Positive": 0, "Neutral": 0, "Negative": 0}
         }
-
+        
+        # Count sentiment labels for each aspect
         for hasil in df["aspek_sentimen"]:
-            for aspek, count in hasil.items():
-                aspect_counts[aspek] += count
+            for aspek, label in hasil.items():
+                if label:  # Only count if label is not None
+                    aspect_counts[aspek][label] += 1
 
         # Create bar chart
         fig_aspects = px.bar(
