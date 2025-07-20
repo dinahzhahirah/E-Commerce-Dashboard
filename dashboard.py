@@ -12,7 +12,7 @@ import spacy
 from collections import Counter
 import string
 import warnings
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 warnings.filterwarnings('ignore')
 import gdown
 import zipfile
@@ -73,14 +73,6 @@ def create_fallback_nlp():
                 self.pos_ = "OTHER"
     
     return FallbackNLP()
-
-@st.cache_resource
-def load_absa_model():
-    model_name = "pierreguillou/bert-base-cased-sentiment-analysis-sst-2-portuguese"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSequenceClassification.from_pretrained(model_name)
-    sentiment_pipeline = pipeline("sentiment-analysis", model=model, tokenizer=tokenizer)
-    return sentiment_pipeline
 
 # Get Portuguese stopwords
 @st.cache_data
@@ -491,35 +483,44 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
     
     with col2:
         # Aspect-based sentiment analysis
-        aspek_dict = {
-            "Buyer Preferences": ["gostei", "não gostei", "amei", "odiei", "adoro", "detesto"],
-            "Product Quality": ["produto", "qualidade", "defeito", "bom", "ruim", "quebrado"],
-            "Delivery Performance": ["entrega", "prazo", "transportadora", "rápido", "atrasado"]
-        }
-
-        def klasifikasi_sentimen_absa(text, sentiment_pipeline):
-            if pd.isna(text):
-                return {"Buyer Preferences": None, "Product Quality": None, "Delivery Performance": None}
+        # Inisialisasi VADER
+        vader_analyzer = SentimentIntensityAnalyzer()
         
-            text = text.lower()
+        # Fungsi label sentimen dengan VADER
+        def label_sentiment_vader(text):
+            if not text or pd.isna(text):
+                return 'Neutral'
+            score = vader_analyzer.polarity_scores(text)
+            compound = score['compound']
+            if compound >= 0.05:
+                return 'Positive'
+            elif compound <= -0.05:
+                return 'Negative'
+            else:
+                return 'Neutral'
+        
+        # Fungsi klasifikasi ABSA dengan VADER
+        def klasifikasi_absa_vader(text):
+            hasil = {
+                "Buyer Preferences": None,
+                "Product Quality": None,
+                "Delivery Performance": None
+            }
+        
             aspek_dict = {
-                "Buyer Preferences": ["gostei", "não gostei", "amei", "odiei", "adoro", "detesto"],
-                "Product Quality": ["produto", "qualidade", "defeito", "bom", "ruim", "quebrado"],
+                "Buyer Preferences": ["gostei", "odiei", "amei", "detesto"],
+                "Product Quality": ["produto", "qualidade", "defeito", "quebrado", "bom"],
                 "Delivery Performance": ["entrega", "prazo", "transportadora", "rápido", "atrasado"]
             }
         
-            hasil = {"Buyer Preferences": None, "Product Quality": None, "Delivery Performance": None}
-        
-            for aspek, kata_kunci in aspek_dict.items():
-                if any(kata in text for kata in kata_kunci):
-                    hasil_model = sentiment_pipeline(text[:512])[0]  # potong untuk jaga-jaga token limit
-                    hasil[aspek] = hasil_model["label"]
+            for aspek, keywords in aspek_dict.items():
+                if any(k in text.lower() for k in keywords):
+                    hasil[aspek] = label_sentiment_vader(text)
         
             return hasil
 
         # Process ABSA
-        sentiment_pipeline = load_absa_model()  # Tambahkan ini sebelum dipakai
-        df["aspek_sentimen"] = df["review_comment_message"].apply(lambda x: klasifikasi_sentimen_absa(x, sentiment_pipeline))
+        df["aspek_sentimen"] = df["review_comment_message"].apply(klasifikasi_absa_vader)
 
         # Calculate aspect counts
         aspect_counts = {
