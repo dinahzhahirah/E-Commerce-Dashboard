@@ -490,19 +490,39 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
         # Count sentiment labels for each aspect
         for hasil in df["aspek_sentimen"]:
             for aspek, label in hasil.items():
-                if label:  # Only count if label is not None
+                if label in ["Positive", "Negative"]:  # Only count Positive & Negative
                     aspect_counts[aspek][label] += 1
 
-        # Create bar chart
-        fig_aspects = px.bar(
-            x=list(aspect_counts.keys()),
-            y=list(aspect_counts.values()),
-            title='Aspect-Based Sentiment Distribution',
-            labels={'x': 'Aspect', 'y': 'Keyword Frequency'},
-            color=list(aspect_counts.values()),
-            color_continuous_scale='viridis'
+        # Convert to DataFrame for plotting
+        aspect_df = pd.DataFrame(aspect_counts).T  # Transpose
+        aspect_df = aspect_df[['Positive', 'Negative']]  # Hanya ambil dua kolom
+        aspect_df = aspect_df.reset_index().rename(columns={'index': 'Aspect'})
+
+        # Stacked Bar Chart
+        fig_aspect_bar = go.Figure(data=[
+            go.Bar(
+                name='Positive',
+                x=aspect_df['Aspect'],
+                y=aspect_df['Positive'],
+                marker_color='#d2601a'
+            ),
+            go.Bar(
+                name='Negative',
+                x=aspect_df['Aspect'],
+                y=aspect_df['Negative'],
+                marker_color='#f4b183'
+            )
+        ])
+        
+        fig_aspect_bar.update_layout(
+            barmode='stack',
+            title='Sentiment Distribution by Aspect (Positive vs Negative)',
+            xaxis_title='Aspect',
+            yaxis_title='Count',
+            height=400
         )
-        st.plotly_chart(fig_aspects, use_container_width=True)
+        
+        st.plotly_chart(fig_aspect_bar, use_container_width=True)
     
     # Bigram Analysis
     st.subheader("🔍 Bigram Analysis (Noun + Adjective)")
