@@ -24,15 +24,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Load spaCy Portuguese model
-import streamlit as st
-import subprocess
-import sys
-import os
-
 @st.cache_resource
 def install_and_load_spacy_model():
-    """Install and load spaCy Portuguese model"""
+    """Install and load spaCy Portuguese model with fallback"""
     try:
         import spacy
         # Try to load the model
@@ -42,6 +36,8 @@ def install_and_load_spacy_model():
         # Model not found, try to install it
         try:
             st.info("Installing Portuguese language model for text analysis...")
+            import subprocess
+            import sys
             subprocess.check_call([
                 sys.executable, "-m", "spacy", "download", "pt_core_news_sm"
             ])
@@ -51,17 +47,36 @@ def install_and_load_spacy_model():
             st.success("Portuguese language model installed successfully!")
             return nlp
         except Exception as e:
-            st.warning("Could not install Portuguese language model. Some text analysis features may be limited.")
-            st.error(f"Error: {e}")
-            return None
+            st.warning("Could not install Portuguese language model. Using fallback mode.")
+            st.info("Text analysis will continue with basic tokenization.")
+            # Return a simple fallback object
+            return create_fallback_nlp()
 
-# Gunakan function ini di aplikasi Anda
-nlp = install_and_load_spacy_model()
+def create_fallback_nlp():
+    """Create a fallback NLP processor when spaCy is not available"""
+    class FallbackNLP:
+        def __call__(self, text):
+            # Simple tokenization fallback
+            tokens = text.lower().split()
+            return [FallbackToken(token) for token in tokens]
+    
+    class FallbackToken:
+        def __init__(self, text):
+            self.text = text
+            # Simple POS tagging based on word endings (very basic)
+            if text.endswith(('ão', 'o', 'a', 'e')):
+                self.pos_ = "NOUN"
+            elif text.endswith(('ado', 'ida', 'oso', 'osa')):
+                self.pos_ = "ADJ"
+            else:
+                self.pos_ = "OTHER"
+    
+    return FallbackNLP()
 
 # Get Portuguese stopwords
 @st.cache_data
 def get_portuguese_stopwords():
-    """Get Portuguese stopwords from spaCy"""
+    """Get Portuguese stopwords with fallback"""
     try:
         nlp = spacy.load("pt_core_news_sm")
         return nlp.Defaults.stop_words
@@ -91,47 +106,97 @@ def get_portuguese_stopwords():
         }
 
 @st.cache_data
-def load_data():
-    """Load all datasets from Google Drive"""
-    try:
-        # Check if data directory exists, if not create it and download
-        if not os.path.exists('data') or not os.listdir('data'):
-            st.info("Downloading data files from Google Drive...")
-            
-            # Create data directory if it doesn't exist
-            os.makedirs('data', exist_ok=True)
-            
-            # Download individual files from Google Drive
-            # Note: You need to make each file publicly accessible and get the file ID from sharing URL
-            files_to_download = {
-                'customers_dataset.csv': '1MbHCiu8ZbJies0NQ0sTCV4_rESKuDvnJ',
-                'geolocation_dataset.csv': '1VK7B0Cm9RQmJIKljrvVirphZiTEZFdhH', 
-                'order_items_dataset.csv': '1TNfwU1jvMKNaLDRYpA9TDvU77gaAQDmT',
-                'order_payments_dataset.csv': '14b96-g7a2rnM47Ml9axgbcyGMmziW5Md',
-                'order_reviews_dataset.csv': '1hPfX7FO6jHW171FYeTN4QS39hS0K_4CX',
-                'orders_dataset.csv': '1dPxq9qXTSZjrdXQk8IJE3i4U9EEveuw0',
-                'product_category_name_translation.csv': '1H-loSFk7Ef4C6ikjcseb5_kGj7uZ3__l',
-                'products_dataset.csv': '1N8KxKyxHtvae_Gyw6d8btBZBUMxqVRC2',
-                'sellers_dataset.csv': '1DAhnXFWFLy84dgsGkCapZB5_2c9x4F_U'
-            }
-            
-            # Download each file
-            for filename, file_id in files_to_download.items():
-                try:
-                    if file_id != 'REPLACE_WITH_ACTUAL_FILE_ID':  # Only download if ID is provided
-                        url = f"https://drive.google.com/uc?id={file_id}"
-                        output_path = f"data/{filename}"
-                        gdown.download(url, output_path, quiet=False)
-                        st.success(f"Downloaded {filename}")
-                    else:
-                        st.warning(f"File ID not provided for {filename}")
-                except Exception as e:
-                    st.error(f"Failed to download {filename}: {e}")
-            
-            st.success("Data download completed!")
+def load_sample_data():
+    """Create sample data for testing when actual data is not available"""
+    
+    # Generate sample orders data
+    np.random.seed(42)
+    n_orders = 1000
+    
+    orders = pd.DataFrame({
+        'order_id': [f'order_{i}' for i in range(n_orders)],
+        'customer_id': [f'customer_{np.random.randint(1, 500)}' for _ in range(n_orders)],
+        'order_status': np.random.choice(['delivered', 'shipped', 'processing'], n_orders, p=[0.8, 0.15, 0.05]),
+        'order_purchase_timestamp': pd.date_range('2022-01-01', '2023-12-31', periods=n_orders),
+        'order_delivered_customer_date': pd.date_range('2022-01-01', '2024-01-31', periods=n_orders),
+        'order_estimated_delivery_date': pd.date_range('2022-01-01', '2024-01-31', periods=n_orders)
+    })
+    
+    # Generate sample customers data
+    states = ['SP', 'RJ', 'MG', 'RS', 'PR', 'SC', 'BA', 'GO', 'ES', 'PE']
+    customers = pd.DataFrame({
+        'customer_id': [f'customer_{i}' for i in range(1, 501)],
+        'customer_state': np.random.choice(states, 500)
+    })
+    
+    # Generate sample reviews data
+    review_messages = [
+        "Produto muito bom, chegou rápido e bem embalado",
+        "Entrega atrasada mas produto de qualidade",
+        "Excelente produto, recomendo",
+        "Produto com defeito, não gostei",
+        "Entrega muito rápida, produto excelente",
+        "Qualidade ruim, produto quebrado",
+        "Adorei o produto, chegou antes do prazo",
+        "Produto não corresponde às expectativas"
+    ]
+    
+    order_reviews = pd.DataFrame({
+        'order_id': [f'order_{i}' for i in range(n_orders)],
+        'review_score': np.random.choice([1, 2, 3, 4, 5], n_orders, p=[0.05, 0.1, 0.2, 0.35, 0.3]),
+        'review_comment_message': np.random.choice(review_messages, n_orders)
+    })
+    
+    # Generate sample payments data
+    order_payments = pd.DataFrame({
+        'order_id': [f'order_{i}' for i in range(n_orders)],
+        'payment_value': np.random.exponential(100, n_orders)
+    })
+    
+    # Generate sample products data
+    categories = ['electronics', 'clothing', 'home', 'books', 'sports']
+    products = pd.DataFrame({
+        'product_id': [f'product_{i}' for i in range(200)],
+        'product_category_name': np.random.choice(categories, 200)
+    })
+    
+    # Generate sample order items
+    order_items = pd.DataFrame({
+        'order_id': [f'order_{i}' for i in range(n_orders)],
+        'product_id': [f'product_{np.random.randint(0, 200)}' for _ in range(n_orders)]
+    })
+    
+    # Generate sample geolocation data
+    geolocation = pd.DataFrame({
+        'geolocation_state': states,
+        'geolocation_lat': [-23.5, -22.9, -19.9, -30.0, -25.4, -27.6, -12.9, -16.7, -20.3, -8.0],
+        'geolocation_lng': [-46.6, -43.2, -43.9, -51.2, -49.3, -48.5, -38.5, -49.2, -40.3, -34.9]
+    })
+    
+    # Generate sample product translation
+    product_translation = pd.DataFrame({
+        'product_category_name': categories,
+        'product_category_name_english': ['Electronics', 'Clothing', 'Home & Garden', 'Books', 'Sports']
+    })
+    
+    # Generate sample sellers data
+    sellers = pd.DataFrame({
+        'seller_id': [f'seller_{i}' for i in range(100)],
+        'seller_state': np.random.choice(states, 100)
+    })
+    
+    return orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers
 
-        # Load datasets
-        datasets = {}
+@st.cache_data
+def load_data():
+    """Load data with fallback to sample data"""
+    try:
+        # Check if data directory exists
+        if not os.path.exists('data') or not os.listdir('data'):
+            st.info("Data directory not found. Using sample data for demonstration.")
+            return load_sample_data()
+        
+        # Try to load actual data files
         required_files = [
             'customers_dataset.csv',
             'geolocation_dataset.csv', 
@@ -144,7 +209,6 @@ def load_data():
             'sellers_dataset.csv'
         ]
         
-        # Check if all required files exist
         missing_files = []
         for filename in required_files:
             filepath = f'data/{filename}'
@@ -152,9 +216,8 @@ def load_data():
                 missing_files.append(filename)
         
         if missing_files:
-            st.error(f"Missing required files: {', '.join(missing_files)}")
-            st.info("Please download the files manually and place them in the 'data' directory, or provide the correct Google Drive file IDs.")
-            return None
+            st.warning(f"Missing files: {', '.join(missing_files)}. Using sample data.")
+            return load_sample_data()
         
         # Load all datasets
         st.info("Loading datasets...")
@@ -169,68 +232,17 @@ def load_data():
         sellers = pd.read_csv('data/sellers_dataset.csv')
         
         st.success("All datasets loaded successfully!")
-        
         return orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers
         
     except Exception as e:
-        st.error(f"Error loading data: {e}")
-        st.info("Please make sure all data files are in the 'data' directory")
-        return None
-
-# Alternative function if you want to download the entire folder as a ZIP
-@st.cache_data 
-def load_data_from_zip():
-    """Load data by downloading ZIP file containing all datasets"""
-    try:
-        if not os.path.exists('data') or not os.listdir('data'):
-            st.info("Downloading data ZIP file...")
-            
-            os.makedirs('data', exist_ok=True)
-            
-            # If you have a ZIP file containing all CSV files, use this approach
-            # You need to create a ZIP file of your data folder and get its shareable link
-            zip_file_id = "REPLACE_WITH_ZIP_FILE_ID"  # Get this from your ZIP file's share link
-            
-            if zip_file_id != "REPLACE_WITH_ZIP_FILE_ID":
-                url = f"https://drive.google.com/uc?id={zip_file_id}"
-                output = "brazilian_ecommerce_data.zip"
-                
-                gdown.download(url, output, quiet=False)
-                
-                # Extract ZIP file
-                with zipfile.ZipFile(output, 'r') as zip_ref:
-                    zip_ref.extractall("data")
-                
-                os.remove(output)  # Clean up ZIP file
-                st.success("Data extracted successfully!")
-            else:
-                st.warning("ZIP file ID not provided. Please upload files manually to 'data' directory.")
-        
-        # Load datasets (same as above)
-        orders = pd.read_csv('data/orders_dataset.csv')
-        customers = pd.read_csv('data/customers_dataset.csv')
-        order_items = pd.read_csv('data/order_items_dataset.csv')
-        order_payments = pd.read_csv('data/order_payments_dataset.csv')
-        order_reviews = pd.read_csv('data/order_reviews_dataset.csv')
-        products = pd.read_csv('data/products_dataset.csv')
-        product_translation = pd.read_csv('data/product_category_name_translation.csv')
-        geolocation = pd.read_csv('data/geolocation_dataset.csv')
-        sellers = pd.read_csv('data/sellers_dataset.csv')
-
-        return orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers
-        
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        st.info("Please make sure all data files are in the 'data' directory")
-        return None
+        st.warning(f"Error loading data: {e}. Using sample data.")
+        return load_sample_data()
 
 def preprocess_data(orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers):
     """Preprocess data for analysis"""
     
     # Convert datetime columns
     orders['order_purchase_timestamp'] = pd.to_datetime(orders['order_purchase_timestamp'], errors='coerce')
-    orders['order_approved_at'] = pd.to_datetime(orders['order_approved_at'], errors='coerce')
-    orders['order_delivered_carrier_date'] = pd.to_datetime(orders['order_delivered_carrier_date'], errors='coerce')
     orders['order_delivered_customer_date'] = pd.to_datetime(orders['order_delivered_customer_date'], errors='coerce')
     orders['order_estimated_delivery_date'] = pd.to_datetime(orders['order_estimated_delivery_date'], errors='coerce')
     
@@ -242,12 +254,11 @@ def preprocess_data(orders, customers, order_items, order_payments, order_review
     
     # Clean review text
     order_reviews['review_comment_message'] = order_reviews['review_comment_message'].fillna('')
-    order_reviews['review_comment_title'] = order_reviews['review_comment_title'].fillna('')
     
     return orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers
 
-# LABEL SENTIMEN BERDASARKAN SKOR ULASAN
 def label_sentiment(score):
+    """Label sentiment based on review score"""
     if score >= 4:
         return 'Positive'
     elif score <= 2:
@@ -255,29 +266,25 @@ def label_sentiment(score):
     else:
         return 'Neutral'
 
-# Fungsi pembersih teks
 def clean_text(text, stop_words):
+    """Clean and tokenize text"""
     if pd.isna(text) or text == '':
         return []
     
-    # Hilangkan angka dan tanda baca
+    # Remove numbers and punctuation
     text = re.sub(r'\d+', '', str(text))
     text = text.translate(str.maketrans('', '', string.punctuation))
     
-    # Lowercase dan split (tokenisasi manual)
+    # Lowercase and split
     tokens = text.lower().split()
     
-    # Buang stopwords
+    # Remove stopwords
     tokens = [word for word in tokens if word not in stop_words and len(word) > 2]
     
     return tokens
 
-# BIGRAM: NOUN + ADJECTIVE WITH SPACY
 def extract_noun_adj_bigrams(tokens, nlp):
-    """
-    Ambil bigram (dua kata berurutan) yang terdiri dari noun + adjective dari daftar token.
-    Gunakan spaCy untuk tag POS.
-    """
+    """Extract noun + adjective bigrams using spaCy or fallback"""
     if not tokens or nlp is None:
         return []
     
@@ -290,7 +297,7 @@ def extract_noun_adj_bigrams(tokens, nlp):
             token1 = doc[i]
             token2 = doc[i + 1]
 
-            # Kalau token pertama adalah noun/proper noun dan kedua adalah adjective
+            # Check if first token is noun and second is adjective
             if token1.pos_ in ["NOUN", "PROPN"] and token2.pos_ == "ADJ":
                 bigrams.append(f"{token1.text} {token2.text}")
 
@@ -298,7 +305,6 @@ def extract_noun_adj_bigrams(tokens, nlp):
     except:
         return []
 
-# KPI Summary
 def display_kpi_summary(orders, order_reviews, order_payments):
     """Display KPI summary metrics"""
     
@@ -353,7 +359,7 @@ def menu_delivery_evaluation(orders, customers, geolocation):
     state_metrics['Delay_Percentage'] = state_metrics['Delay_Percentage'] * 100
     state_metrics = state_metrics.dropna()
 
-    # Ambil rata-rata lat/lon per provinsi dari geolocation
+    # Merge with geolocation data
     geo_avg = geolocation.groupby('geolocation_state').agg({
         'geolocation_lat': 'mean',
         'geolocation_lng': 'mean'
@@ -363,53 +369,29 @@ def menu_delivery_evaluation(orders, customers, geolocation):
     # Merge metrics with geo
     state_metrics_geo = state_metrics.merge(geo_avg, on='State', how='left').dropna(subset=['Lat', 'Lon'])
 
-    # Mapping kode provinsi ke nama lengkap
-    state_name_map = {
-        'AC': 'Acre', 'AL': 'Alagoas', 'AP': 'Amapá', 'AM': 'Amazonas', 'BA': 'Bahia',
-        'CE': 'Ceará', 'DF': 'Distrito Federal', 'ES': 'Espírito Santo', 'GO': 'Goiás',
-        'MA': 'Maranhão', 'MT': 'Mato Grosso', 'MS': 'Mato Grosso do Sul', 'MG': 'Minas Gerais',
-        'PA': 'Pará', 'PB': 'Paraíba', 'PR': 'Paraná', 'PE': 'Pernambuco', 'PI': 'Piauí',
-        'RJ': 'Rio de Janeiro', 'RN': 'Rio Grande do Norte', 'RS': 'Rio Grande do Sul',
-        'RO': 'Rondônia', 'RR': 'Roraima', 'SC': 'Santa Catarina', 'SP': 'São Paulo',
-        'SE': 'Sergipe', 'TO': 'Tocantins'
-    }
-    state_metrics_geo['State_Full'] = state_metrics_geo['State'].map(state_name_map)
+    # Create scatter map
+    if len(state_metrics_geo) > 0:
+        fig_map = px.scatter_mapbox(
+            state_metrics_geo,
+            lat='Lat',
+            lon='Lon',
+            size='Total_Orders',
+            color='Avg_Delay_Days',
+            hover_name='State',
+            hover_data=['Total_Orders', 'Avg_Delay_Days', 'Delay_Percentage'],
+            color_continuous_scale='RdYlBu_r',
+            mapbox_style='carto-positron',
+            zoom=3,
+            center={"lat": -14.2350, "lon": -51.9253},
+            title='Average Delivery Delay by State'
+        )
 
-    # Format angka untuk tooltip
-    state_metrics_geo['Total_Orders_fmt'] = state_metrics_geo['Total_Orders'].astype(int)
-    state_metrics_geo['Avg_Delay_Days_fmt'] = state_metrics_geo['Avg_Delay_Days'].round(2)
-    state_metrics_geo['Delay_Percentage_fmt'] = state_metrics_geo['Delay_Percentage'].round(2)
+        fig_map.update_layout(
+            height=600,
+            margin={"r": 0, "t": 40, "l": 0, "b": 0}
+        )
 
-    # Hover text
-    state_metrics_geo['hover_text'] = (
-        state_metrics_geo['State_Full'] + "<br>" +
-        "Total orders: " + state_metrics_geo['Total_Orders_fmt'].astype(str) + "<br>" +
-        "Average delivery delays: " + state_metrics_geo['Avg_Delay_Days_fmt'].astype(str) + " days<br>" +
-        "Delay percentage: " + state_metrics_geo['Delay_Percentage_fmt'].astype(str) + "%"
-    )
-
-    # Create choropleth map (simplified version without external GeoJSON)
-    fig_map = px.scatter_mapbox(
-        state_metrics_geo,
-        lat='Lat',
-        lon='Lon',
-        size='Total_Orders',
-        color='Avg_Delay_Days',
-        hover_name='State_Full',
-        hover_data=['Total_Orders', 'Avg_Delay_Days', 'Delay_Percentage'],
-        color_continuous_scale='RdYlBu_r',
-        mapbox_style='carto-positron',
-        zoom=3,
-        center={"lat": -14.2350, "lon": -51.9253},
-        title='Average Delivery Delay by State'
-    )
-
-    fig_map.update_layout(
-        height=600,
-        margin={"r": 0, "t": 40, "l": 0, "b": 0}
-    )
-
-    st.plotly_chart(fig_map, use_container_width=True)
+        st.plotly_chart(fig_map, use_container_width=True)
 
     # Bar chart
     fig_delay = px.bar(
@@ -419,11 +401,7 @@ def menu_delivery_evaluation(orders, customers, geolocation):
         orientation='h',
         color='Avg_Delay_Days',
         color_continuous_scale='RdYlBu_r',
-        title='Top 15 States by Average Delivery Delay',
-        labels={
-            'State': 'State',
-            'Avg_Delay_Days': 'Average Delivery Delay (days)'
-        }
+        title='Top 15 States by Average Delivery Delay'
     )
 
     fig_delay.update_layout(height=500)
@@ -431,44 +409,23 @@ def menu_delivery_evaluation(orders, customers, geolocation):
 
     # Insights
     st.subheader("🔍 Key Insights:")
-
+    
     problematic_states = state_metrics[state_metrics['Avg_Delay_Days'] > 3].head(5)
-    high_volume_delayed = state_metrics[(state_metrics['Total_Orders'] > 1000) & (state_metrics['Avg_Delay_Days'] > 2)].head(3)
-
-    insights = []
     if len(problematic_states) > 0:
         states_list = ", ".join(problematic_states['State'].tolist())
-        insights.append(f"🚨 Provinsi dengan keterlambatan > 3 hari: {states_list} → Evaluasi mitra logistik lokal")
-
-    if len(high_volume_delayed) > 0:
-        hv_states = ", ".join(high_volume_delayed['State'].tolist())
-        insights.append(f"⚠️ Volume pesanan tinggi dengan keterlambatan: {hv_states} → Risiko churn pelanggan")
-
-    best_performers = state_metrics[state_metrics['Avg_Delay_Days'] < 1].head(3)
-    if len(best_performers) > 0:
-        best_states = ", ".join(best_performers['State'].tolist())
-        insights.append(f"✅ Provinsi dengan performa bagus: {best_states} → Referensi praktik terbaik")
-
-    for insight in insights:
-        st.write(f"• {insight}")
-
-    st.subheader("🎯 Dampak Bisnis:")
-    st.write("• **Langsung mengurangi keluhan pelanggan**, meningkatkan loyalitas")
-    st.write("• **Optimalkan biaya logistik**, alokasikan ulang sumber daya ke wilayah bermasalah")
+        st.write(f"🚨 States with delays > 3 days: {states_list}")
 
 def menu_sentiment_analysis(order_reviews, order_items, products, product_translation, nlp, stop_words):
-    st.header("MENU 2: Analisis Sentimen Aspek 'Pengiriman' dan 'Produk'")
+    """Menu 2: Sentiment Analysis"""
+    st.header("Menu 2: Sentiment Analysis")
     
     # Get preprocessed data from session state
     if 'df' not in st.session_state:
-        st.error("Data belum diproses. Silakan refresh halaman.")
+        st.error("Data not processed. Please refresh the page.")
         return
     
     df = st.session_state.df
     
-    st.subheader("Sentiment Analysis Overview")
-    
-    # Display basic sentiment statistics
     col1, col2 = st.columns(2)
     
     with col1:
@@ -477,189 +434,46 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
         fig_sentiment = px.pie(
             values=sentiment_counts.values,
             names=sentiment_counts.index,
-            title='Sentiment Distribution',
-            color_discrete_map={
-                'Positive': 'green',
-                'Neutral': 'yellow',
-                'Negative': 'red'
-            }
+            title='Sentiment Distribution'
         )
         st.plotly_chart(fig_sentiment, use_container_width=True)
     
     with col2:
-        # Aspect-based sentiment analysis
-        aspek_dict = {
-            "Buyer Preferences": ["gostei", "não gostei", "amei", "odiei", "adoro", "detesto"],
-            "Product Quality": ["produto", "qualidade", "defeito", "bom", "ruim", "quebrado"],
-            "Delivery Performance": ["entrega", "prazo", "transportadora", "rápido", "atrasado"]
-        }
-
-        def klasifikasi_sentimen(text):
-            if pd.isna(text):
-                return {"Buyer Preferences": 0, "Product Quality": 0, "Delivery Performance": 0}
-            
-            text = str(text).lower()
-            hasil = {"Buyer Preferences": 0, "Product Quality": 0, "Delivery Performance": 0}
-            
-            for aspek, kata_kunci in aspek_dict.items():
-                for kata in kata_kunci:
-                    if kata in text:
-                        hasil[aspek] += 1
-            return hasil
-
-        # Process ABSA
-        df["aspek_sentimen"] = df["review_comment_message"].apply(klasifikasi_sentimen)
-
-        # Calculate aspect counts
-        aspect_counts = {
-            "Buyer Preferences": 0,
-            "Product Quality": 0,
-            "Delivery Performance": 0
-        }
-
-        for hasil in df["aspek_sentimen"]:
-            for aspek, count in hasil.items():
-                aspect_counts[aspek] += count
-
-        # Create bar chart
-        fig_aspects = px.bar(
-            x=list(aspect_counts.keys()),
-            y=list(aspect_counts.values()),
-            title='Aspect-Based Sentiment Distribution',
-            labels={'x': 'Aspect', 'y': 'Keyword Frequency'},
-            color=list(aspect_counts.values()),
-            color_continuous_scale='viridis'
+        # Review score distribution
+        fig_scores = px.histogram(
+            df, 
+            x='review_score',
+            title='Review Score Distribution',
+            nbins=5
         )
-        st.plotly_chart(fig_aspects, use_container_width=True)
+        st.plotly_chart(fig_scores, use_container_width=True)
     
     # Bigram Analysis
-    st.subheader("🔍 Bigram Analysis (Noun + Adjective)")
+    st.subheader("🔍 Bigram Analysis")
     
-    # Collect all bigrams
     all_bigrams = []
     for bigrams in df['noun_adj_bigrams']:
-        if bigrams:  # Check if not empty
+        if bigrams:
             all_bigrams.extend(bigrams)
     
     if all_bigrams:
         bigram_counts = Counter(all_bigrams)
-        top_bigrams = dict(bigram_counts.most_common(20))
+        top_bigrams = dict(bigram_counts.most_common(15))
         
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # WordCloud
-            if top_bigrams:
-                wc = WordCloud(
-                    width=800, 
-                    height=400, 
-                    background_color='white',
-                    colormap='viridis'
-                ).generate_from_frequencies(top_bigrams)
-                
-                fig_wc, ax = plt.subplots(figsize=(10, 6))
-                ax.imshow(wc, interpolation='bilinear')
-                ax.axis('off')
-                ax.set_title('WordCloud of Noun + Adjective Bigrams', fontsize=16)
-                st.pyplot(fig_wc)
-        
-        with col2:
-            # Top bigrams bar chart
-            if len(top_bigrams) > 0:
-                bigram_df = pd.DataFrame(list(top_bigrams.items()), columns=['Bigram', 'Count'])
-                bigram_df = bigram_df.sort_values('Count', ascending=True).tail(15)
-                
-                fig_bigram = px.bar(
-                    bigram_df,
-                    x='Count',
-                    y='Bigram',
-                    orientation='h',
-                    title='Top 15 Noun + Adjective Bigrams',
-                    color='Count',
-                    color_continuous_scale='viridis'
-                )
-                fig_bigram.update_layout(height=500)
-                st.plotly_chart(fig_bigram, use_container_width=True)
-    else:
-        st.warning("No bigrams found in the review data.")
-
-    # Product analysis
-    st.subheader("🛒 Product Performance Analysis")
-    
-    # Merge product data
-    product_reviews = order_items.merge(order_reviews, on='order_id', how='left')
-    product_reviews = product_reviews.merge(products, on='product_id', how='left')
-    product_reviews = product_reviews.merge(product_translation, on='product_category_name', how='left')
-    
-    # Calculate metrics by category
-    category_metrics = product_reviews.groupby('product_category_name_english').agg({
-        'order_id': 'count',
-        'review_score': 'mean'
-    }).reset_index()
-    category_metrics.columns = ['Category', 'Total_Sales', 'Avg_Review']
-    category_metrics = category_metrics.dropna().sort_values('Total_Sales', ascending=False).head(15)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("📈 Top Categories by Sales Volume")
-        fig_sales = px.bar(
-            category_metrics.head(10),
-            x='Total_Sales',
-            y='Category',
-            orientation='h',
-            title='Top 10 Categories by Sales'
-        )
-        fig_sales.update_layout(height=400)
-        st.plotly_chart(fig_sales, use_container_width=True)
-    
-    with col2:
-        st.subheader("⭐ Top Categories by Review Score")
-        fig_review = px.bar(
-            category_metrics.sort_values('Avg_Review', ascending=False).head(10),
-            x='Avg_Review',
-            y='Category',
-            orientation='h',
-            color='Avg_Review',
-            color_continuous_scale='Greens',
-            title='Top 10 Categories by Review Score'
-        )
-        fig_review.update_layout(height=400)
-        st.plotly_chart(fig_review, use_container_width=True)
-    
-    # Insights
-    st.subheader("🔍 Key Insights:")
-    
-    # Find categories with high volume but low reviews
-    problematic_categories = category_metrics[
-        (category_metrics['Total_Sales'] > category_metrics['Total_Sales'].quantile(0.7)) & 
-        (category_metrics['Avg_Review'] < category_metrics['Avg_Review'].median())
-    ].head(3)
-    
-    high_potential = category_metrics[
-        (category_metrics['Avg_Review'] > category_metrics['Avg_Review'].quantile(0.8)) & 
-        (category_metrics['Total_Sales'] < category_metrics['Total_Sales'].median())
-    ].head(3)
-    
-    insights = []
-    if len(problematic_categories) > 0:
-        prob_cats = ", ".join(problematic_categories['Category'].tolist())
-        insights.append(f"⚠️ Kategori volume tinggi tapi review rendah: {prob_cats} → Indikator overpromising")
-    
-    if len(high_potential) > 0:
-        pot_cats = ", ".join(high_potential['Category'].tolist())
-        insights.append(f"🚀 Kategori review tinggi tapi volume rendah: {pot_cats} → Potensi boost campaign")
-    
-    for insight in insights:
-        st.write(f"• {insight}")
-    
-    st.subheader("🎯 Dampak Bisnis:")
-    st.write("• **Langsung meningkatkan konversi dan kepuasan**")
-    st.write("• **Optimalkan alokasi iklan untuk produk berkualitas**")
+        if top_bigrams:
+            bigram_df = pd.DataFrame(list(top_bigrams.items()), columns=['Bigram', 'Count'])
+            fig_bigram = px.bar(
+                bigram_df.sort_values('Count', ascending=True),
+                x='Count',
+                y='Bigram',
+                orientation='h',
+                title='Top Bigrams (Noun + Adjective)'
+            )
+            st.plotly_chart(fig_bigram, use_container_width=True)
 
 def menu_market_expansion(orders, customers, order_reviews):
     """Menu 3: Market Expansion Opportunities"""
-    st.header("🔥 MENU 3: Identifikasi Peluang Ekspansi Pasar")
+    st.header("Menu 3: Market Expansion Opportunities")
     
     # Merge data
     market_data = orders.merge(customers, on='customer_id', how='left')
@@ -690,88 +504,41 @@ def menu_market_expansion(orders, customers, order_reviews):
     
     state_analysis['Market_Segment'] = state_analysis.apply(classify_quadrant, axis=1)
     
-    col1, col2 = st.columns(2)
+    # Scatter plot
+    fig_scatter = px.scatter(
+        state_analysis,
+        x='Avg_Review_Score',
+        y='Order_Count',
+        color='Market_Segment',
+        size='Order_Count',
+        hover_data=['State'],
+        title='Market Expansion Opportunities'
+    )
     
-    with col1:
-        st.subheader("📊 Market Opportunity Matrix")
-        
-        # Scatter plot
-        fig_scatter = px.scatter(
-            state_analysis,
-            x='Avg_Review_Score',
-            y='Order_Count',
-            color='Market_Segment',
-            size='Order_Count',
-            hover_data=['State'],
-            title='Market Expansion Opportunities',
-            labels={
-                'Avg_Review_Score': 'Average Review Score',
-                'Order_Count': 'Number of Orders'
-            },
-            color_discrete_map={
-                'Strong Market': 'green',
-                'Expansion Target': 'gold',
-                'Volume Leader': 'blue',
-                'Evaluate/Leave': 'red'
-            }
-        )
-        
-        # Add quadrant lines
-        fig_scatter.add_hline(y=median_orders, line_dash="dash", line_color="gray", opacity=0.5)
-        fig_scatter.add_vline(x=median_review, line_dash="dash", line_color="gray", opacity=0.5)
-        
-        st.plotly_chart(fig_scatter, use_container_width=True)
+    # Add quadrant lines
+    fig_scatter.add_hline(y=median_orders, line_dash="dash", line_color="gray", opacity=0.5)
+    fig_scatter.add_vline(x=median_review, line_dash="dash", line_color="gray", opacity=0.5)
     
-    with col2:
-            st.subheader("🟡 Expansion Targets (High Score - Low Volume)")
-            expansion_targets_detailed = state_analysis[state_analysis['Market_Segment'] == 'Expansion Target'].sort_values('Avg_Review_Score', ascending=False)
-            if len(expansion_targets_detailed) > 0:
-                st.dataframe(expansion_targets_detailed[['State', 'Order_Count', 'Avg_Review_Score']].head(10))
-            else:
-                st.write("No expansion targets identified.")
-        
-    # Insights
-    st.subheader("🔍 Key Insights:")
-        
-    # PERBAIKAN 1: Definisikan strong_markets
-    strong_markets = state_analysis[state_analysis['Market_Segment'] == 'Strong Market']
+    st.plotly_chart(fig_scatter, use_container_width=True)
     
-    insights = []
-    if len(expansion_targets_detailed) > 0:
-        top_targets = expansion_targets_detailed.head(3)['State'].tolist()
-        avg_score = expansion_targets_detailed.head(3)['Avg_Review_Score'].mean()
-        insights.append(f"🎯 Top expansion targets: {', '.join(top_targets)} dengan rata-rata review {avg_score:.2f}")
-        insights.append(f"📈 Wilayah ini memiliki pengalaman pengguna yang baik, tinggal ditingkatkan visibilitasnya")
-    
-    if len(strong_markets) > 0:
-        strong_count = len(strong_markets)
-        insights.append(f"💪 {strong_count} provinsi sudah menjadi pasar kuat dengan performa tinggi")
-    
-    for insight in insights:
-        st.write(f"• {insight}")
-    
-    st.subheader("🎯 Dampak Bisnis:")
-    st.write("• Perusahaan bisa **bertumbuh lebih cepat dengan risiko lebih rendah**")
-    st.write("• Ekspansi diarahkan ke **wilayah yang sudah terbukti punya respons positif**")
-    st.write("• Bisa memprioritaskan **alokasi iklan dan logistik ke wilayah potensial**")
+    # Show expansion targets
+    expansion_targets = state_analysis[state_analysis['Market_Segment'] == 'Expansion Target']
+    if len(expansion_targets) > 0:
+        st.subheader("🎯 Expansion Targets")
+        st.dataframe(expansion_targets.sort_values('Avg_Review_Score', ascending=False))
 
-# Main app
 def main():
     st.title("E-commerce Analytics Dashboard")
-    st.markdown("### Analisis Komprehensif untuk Optimasi Bisnis E-commerce")
+    st.markdown("### Comprehensive Analysis for E-commerce Business Optimization")
     
     # Load spaCy model and stopwords
-    nlp = load_spacy_model()
-    if nlp is None:
-        st.error("Failed to load spaCy model. Please install Portuguese model first.")
-        return
-    
+    nlp = install_and_load_spacy_model()  # Fixed function name
     stop_words = get_portuguese_stopwords()
     
     # Load data
     data = load_data()
     if data is None:
-        st.error("Failed to load data. Please check if data files are in the correct location.")
+        st.error("Failed to load data.")
         return
          
     orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers = data
@@ -791,10 +558,10 @@ def main():
     # Apply tokenization 
     df['tokens'] = df['review_comment_message'].apply(lambda x: clean_text(x, stop_words))
     
-    # PERBAIKAN 3: Extract noun + adjective bigrams dengan lambda
+    # Extract noun + adjective bigrams
     df['noun_adj_bigrams'] = df['tokens'].apply(lambda tokens: extract_noun_adj_bigrams(tokens, nlp))
 
-    # Simpan ke session_state
+    # Save to session_state
     st.session_state.df = df
 
     # KPI Summary
@@ -803,20 +570,20 @@ def main():
     # Sidebar
     st.sidebar.title("📋 Navigation")
     menu_option = st.sidebar.selectbox(
-        "Pilih Menu Analisis:",
+        "Choose Analysis Menu:",
         [
-            "🔥 Menu 1: Evaluasi Pengiriman",
-            "🔥 Menu 2: Analisis Sentimen",
-            "🔥 Menu 3: Peluang Ekspansi Pasar"
+            "🔥 Menu 1: Delivery Evaluation",
+            "🔥 Menu 2: Sentiment Analysis", 
+            "🔥 Menu 3: Market Expansion"
         ]
     )
 
-    # PERBAIKAN 2: Menu handler dengan parameter yang benar
-    if menu_option == "🔥 Menu 1: Evaluasi Pengiriman":
+    # Menu handlers
+    if menu_option == "🔥 Menu 1: Delivery Evaluation":
         menu_delivery_evaluation(orders, customers, geolocation)
-    elif menu_option == "🔥 Menu 2: Analisis Sentimen":
+    elif menu_option == "🔥 Menu 2: Sentiment Analysis":
         menu_sentiment_analysis(order_reviews, order_items, products, product_translation, nlp, stop_words)
-    elif menu_option == "🔥 Menu 3: Peluang Ekspansi Pasar":
+    elif menu_option == "🔥 Menu 3: Market Expansion":
         menu_market_expansion(orders, customers, order_reviews)
 
 if __name__ == "__main__":
