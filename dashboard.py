@@ -621,5 +621,9 @@ def main():
     elif menu_option == "🔥 Menu 3: Market Expansion":
         menu_market_expansion(orders, customers, order_reviews)
 
+# Add Kangturu label at bottom left
+st.sidebar.markdown("---")
+st.sidebar.markdown("Kangturu  \nSSDC2025002")
+
 if __name__ == "__main__":
     main()
