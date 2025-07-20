@@ -6,11 +6,9 @@ import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 import re
 from datetime import datetime
-import statsmodels.api as sm
 import seaborn as sns
 from wordcloud import WordCloud
 import spacy
-from spacy.lang.pt.stop_words import STOP_WORDS
 from collections import Counter
 import string
 import warnings
@@ -19,14 +17,12 @@ import gdown
 import zipfile
 import os
 
-# Unduh file dari Google Drive
-url = "https://drive.google.com/drive/folders/16dSUlS6PqGY4NNVHiChW0qlqK6PgI-OD?usp=drive_link"
-output = "data.zip"
-gdown.download(url, output, quiet=False)
-
-# Ekstrak zip
-with zipfile.ZipFile(output, 'r') as zip_ref:
-    zip_ref.extractall("data")
+# Page config
+st.set_page_config(
+    page_title="E-commerce Analytics Dashboard", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 # Load spaCy Portuguese model
 @st.cache_resource
@@ -43,20 +39,61 @@ def load_spacy_model():
 @st.cache_data
 def get_portuguese_stopwords():
     """Get Portuguese stopwords from spaCy"""
-    nlp = spacy.load("pt_core_news_sm")
-    return nlp.Defaults.stop_words
-
-# Page config
-st.set_page_config(
-    page_title="E-commerce Analytics Dashboard", 
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+    try:
+        nlp = spacy.load("pt_core_news_sm")
+        return nlp.Defaults.stop_words
+    except:
+        # Fallback Portuguese stopwords
+        return {
+            'a', 'ao', 'aos', 'aquela', 'aquelas', 'aquele', 'aqueles', 'aquilo', 'as', 'até', 'com', 'como', 
+            'da', 'das', 'de', 'dela', 'delas', 'dele', 'deles', 'depois', 'do', 'dos', 'e', 'ela', 'elas', 
+            'ele', 'eles', 'em', 'entre', 'era', 'eram', 'essa', 'essas', 'esse', 'esses', 'esta', 'estamos', 
+            'estar', 'estas', 'estava', 'estavam', 'este', 'esteja', 'estejam', 'estejamos', 'estes', 'esteve', 
+            'estive', 'estivemos', 'estiver', 'estivera', 'estiveram', 'estiverem', 'estivermos', 'estivesse', 
+            'estivessem', 'estivéramos', 'estivéssemos', 'estou', 'está', 'estávamos', 'estão', 'eu', 'foi', 
+            'fomos', 'for', 'fora', 'foram', 'forem', 'formos', 'fosse', 'fossem', 'fui', 'fôramos', 
+            'fôssemos', 'haja', 'hajam', 'hajamos', 'havemos', 'havia', 'haviam', 'havido', 'havidos', 'haver', 
+            'haveremos', 'haveria', 'haveriam', 'haveríamos', 'houve', 'houvemos', 'houver', 'houvera', 
+            'houveram', 'houverei', 'houverem', 'houveremos', 'houveria', 'houveriam', 'houveríamos', 
+            'houvermos', 'houvesse', 'houvessem', 'houvéramos', 'houvéssemos', 'há', 'hão', 'isso', 'isto', 
+            'já', 'lhe', 'lhes', 'mais', 'mas', 'me', 'mesmo', 'meu', 'meus', 'minha', 'minhas', 'muito', 
+            'na', 'nas', 'nem', 'no', 'nos', 'nossa', 'nossas', 'nosso', 'nossos', 'não', 'nós', 'o', 'os', 
+            'ou', 'para', 'pela', 'pelas', 'pelo', 'pelos', 'por', 'qual', 'quando', 'que', 'quem', 'são', 
+            'se', 'seja', 'sejam', 'sejamos', 'sem', 'ser', 'sera', 'seremos', 'seria', 'seriam', 'seríamos', 
+            'seu', 'seus', 'só', 'sua', 'suas', 'também', 'te', 'tem', 'temos', 'tenha', 'tenham', 'tenhamos', 
+            'tenho', 'ter', 'terei', 'teremos', 'teria', 'teriam', 'teríamos', 'teu', 'teus', 'teve', 'tinha', 
+            'tinham', 'tive', 'tivemos', 'tiver', 'tivera', 'tiveram', 'tiverem', 'tivermos', 'tivesse', 
+            'tivessem', 'tivéramos', 'tivéssemos', 'tu', 'tua', 'tuas', 'tém', 'tínhamos', 'um', 'uma', 
+            'você', 'vocês', 'vos', 'à', 'às', 'éramos'
+        }
 
 @st.cache_data
 def load_data():
     """Load all datasets"""
     try:
+        # Check if data directory exists, if not create it and download
+        if not os.path.exists('data') or not os.listdir('data'):
+            st.info("Downloading data files...")
+            
+            # Create data directory if it doesn't exist
+            os.makedirs('data', exist_ok=True)
+            
+            # Try to download data (this part may need adjustment based on actual data source)
+            try:
+                url = "https://drive.google.com/uc?id=YOUR_DRIVE_FILE_ID"  # Replace with actual file ID
+                output = "data.zip"
+                gdown.download(url, output, quiet=False)
+                
+                # Extract zip
+                with zipfile.ZipFile(output, 'r') as zip_ref:
+                    zip_ref.extractall("data")
+                
+                os.remove(output)  # Clean up zip file
+            except:
+                st.warning("Could not download data automatically. Please ensure data files are in the 'data' directory.")
+                return None
+
+        # Load datasets
         orders = pd.read_csv('data/orders_dataset.csv')
         customers = pd.read_csv('data/customers_dataset.csv')
         order_items = pd.read_csv('data/order_items_dataset.csv')
@@ -70,6 +107,7 @@ def load_data():
         return orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers
     except Exception as e:
         st.error(f"Error loading data: {e}")
+        st.info("Please make sure all data files are in the 'data' directory")
         return None
 
 def preprocess_data(orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers):
@@ -104,43 +142,48 @@ def label_sentiment(score):
         return 'Neutral'
 
 # Fungsi pembersih teks
-def clean_text(text):
-    stopwords = get_portuguese_stopwords()
+def clean_text(text, stop_words):
+    if pd.isna(text) or text == '':
+        return []
     
     # Hilangkan angka dan tanda baca
-    text = re.sub(r'\d+', '', text)
+    text = re.sub(r'\d+', '', str(text))
     text = text.translate(str.maketrans('', '', string.punctuation))
     
     # Lowercase dan split (tokenisasi manual)
     tokens = text.lower().split()
     
     # Buang stopwords
-    tokens = [word for word in tokens if word not in stopwords]
+    tokens = [word for word in tokens if word not in stop_words and len(word) > 2]
     
     return tokens
 
 # BIGRAM: NOUN + ADJECTIVE WITH SPACY
-nlp = spacy.load("pt_core_news_sm")
-
-def extract_noun_adj_bigrams(tokens):
+def extract_noun_adj_bigrams(tokens, nlp):
     """
     Ambil bigram (dua kata berurutan) yang terdiri dari noun + adjective dari daftar token.
     Gunakan spaCy untuk tag POS.
     """
-    text = " ".join(tokens)
-    doc = nlp(text)
-    bigrams = []
-
-    for i in range(len(doc) - 1):
-        token1 = doc[i]
-        token2 = doc[i + 1]
-
-        # Kalau token pertama adalah noun/proper noun dan kedua adalah adjective
-        if token1.pos_ in ["NOUN", "PROPN"] and token2.pos_ == "ADJ":
-            bigrams.append(f"{token1.text} {token2.text}")
-
-    return bigrams
+    if not tokens or nlp is None:
+        return []
     
+    try:
+        text = " ".join(tokens)
+        doc = nlp(text)
+        bigrams = []
+
+        for i in range(len(doc) - 1):
+            token1 = doc[i]
+            token2 = doc[i + 1]
+
+            # Kalau token pertama adalah noun/proper noun dan kedua adalah adjective
+            if token1.pos_ in ["NOUN", "PROPN"] and token2.pos_ == "ADJ":
+                bigrams.append(f"{token1.text} {token2.text}")
+
+        return bigrams
+    except:
+        return []
+
 # KPI Summary
 def display_kpi_summary(orders, order_reviews, order_payments):
     """Display KPI summary metrics"""
@@ -231,29 +274,20 @@ def menu_delivery_evaluation(orders, customers, geolocation):
         "Delay percentage: " + state_metrics_geo['Delay_Percentage_fmt'].astype(str) + "%"
     )
 
-    # GeoJSON URL
-    geojson_url = 'https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson'
-
-    # Choropleth map
-    fig_map = px.choropleth_mapbox(
+    # Create choropleth map (simplified version without external GeoJSON)
+    fig_map = px.scatter_mapbox(
         state_metrics_geo,
-        geojson=geojson_url,
-        locations='State_Full',
-        featureidkey='properties.name',
+        lat='Lat',
+        lon='Lon',
+        size='Total_Orders',
         color='Avg_Delay_Days',
-        color_continuous_scale='Reds_r',
-        range_color=[state_metrics_geo['Avg_Delay_Days'].min(), 0],
+        hover_name='State_Full',
+        hover_data=['Total_Orders', 'Avg_Delay_Days', 'Delay_Percentage'],
+        color_continuous_scale='RdYlBu_r',
         mapbox_style='carto-positron',
         zoom=3,
         center={"lat": -14.2350, "lon": -51.9253},
-        opacity=0.7,
-        title='Average Delivery Delay by State',
-        custom_data=['hover_text']
-    )
-
-    # Tooltip tampil sesuai format custom
-    fig_map.update_traces(
-        hovertemplate="%{customdata[0]}"
+        title='Average Delivery Delay by State'
     )
 
     fig_map.update_layout(
@@ -261,42 +295,24 @@ def menu_delivery_evaluation(orders, customers, geolocation):
         margin={"r": 0, "t": 40, "l": 0, "b": 0}
     )
 
-    # Tampilkan di Streamlit
     st.plotly_chart(fig_map, use_container_width=True)
 
-    # Bar chart di bawah map
+    # Bar chart
     fig_delay = px.bar(
-        state_metrics_geo.sort_values('Avg_Delay_Days', ascending=True).head(15).iloc[::-1],
+        state_metrics.sort_values('Avg_Delay_Days', ascending=True).head(15),
         x='Avg_Delay_Days',
-        y='State_Full',
+        y='State',
         orientation='h',
         color='Avg_Delay_Days',
-        color_continuous_scale='Reds',
+        color_continuous_scale='RdYlBu_r',
         title='Top 15 States by Average Delivery Delay',
         labels={
-            'State_Full': 'State',
+            'State': 'State',
             'Avg_Delay_Days': 'Average Delivery Delay (days)'
-        },
-        range_color=[-20, -10],
-        text='Avg_Delay_Days'
+        }
     )
 
-    fig_delay.update_layout(
-        height=500,
-        margin=dict(l=120),
-        coloraxis_colorbar=dict(
-            title='Average Delivery Delay',
-            tickvals=[-20, -18, -16, -14, -12, -10][::-1],
-            ticktext=[str(i) for i in [-20, -18, -16, -14, -12, -10][::-1]]
-        )
-    )
-    fig_delay.update_traces(
-        marker=dict(line=dict(width=0)),
-        textposition='auto',
-        texttemplate='%{text:.2f}',
-        textfont_size=12
-    )
-    fig_delay.update_coloraxes(reversescale=True)
+    fig_delay.update_layout(height=500)
     st.plotly_chart(fig_delay, use_container_width=True)
 
     # Insights
@@ -336,7 +352,7 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
     
     df = st.session_state.df
     
-    st.subheader("📊 Sentiment Analysis Overview")
+    st.subheader("Sentiment Analysis Overview")
     
     # Display basic sentiment statistics
     col1, col2 = st.columns(2)
@@ -357,20 +373,50 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
         st.plotly_chart(fig_sentiment, use_container_width=True)
     
     with col2:
-        # Sentiment bar chart
-        fig_bar = px.bar(
-            x=sentiment_counts.index,
-            y=sentiment_counts.values,
-            title='Number of Reviews by Sentiment',
-            color=sentiment_counts.index,
-            color_discrete_map={
-                'Positive': 'green',
-                'Neutral': 'yellow',
-                'Negative': 'red'
-            }
+        # Aspect-based sentiment analysis
+        aspek_dict = {
+            "Buyer Preferences": ["gostei", "não gostei", "amei", "odiei", "adoro", "detesto"],
+            "Product Quality": ["produto", "qualidade", "defeito", "bom", "ruim", "quebrado"],
+            "Delivery Performance": ["entrega", "prazo", "transportadora", "rápido", "atrasado"]
+        }
+
+        def klasifikasi_sentimen(text):
+            if pd.isna(text):
+                return {"Buyer Preferences": 0, "Product Quality": 0, "Delivery Performance": 0}
+            
+            text = str(text).lower()
+            hasil = {"Buyer Preferences": 0, "Product Quality": 0, "Delivery Performance": 0}
+            
+            for aspek, kata_kunci in aspek_dict.items():
+                for kata in kata_kunci:
+                    if kata in text:
+                        hasil[aspek] += 1
+            return hasil
+
+        # Process ABSA
+        df["aspek_sentimen"] = df["review_comment_message"].apply(klasifikasi_sentimen)
+
+        # Calculate aspect counts
+        aspect_counts = {
+            "Buyer Preferences": 0,
+            "Product Quality": 0,
+            "Delivery Performance": 0
+        }
+
+        for hasil in df["aspek_sentimen"]:
+            for aspek, count in hasil.items():
+                aspect_counts[aspek] += count
+
+        # Create bar chart
+        fig_aspects = px.bar(
+            x=list(aspect_counts.keys()),
+            y=list(aspect_counts.values()),
+            title='Aspect-Based Sentiment Distribution',
+            labels={'x': 'Aspect', 'y': 'Keyword Frequency'},
+            color=list(aspect_counts.values()),
+            color_continuous_scale='viridis'
         )
-        fig_bar.update_layout(showlegend=False)
-        st.plotly_chart(fig_bar, use_container_width=True)
+        st.plotly_chart(fig_aspects, use_container_width=True)
     
     # Bigram Analysis
     st.subheader("🔍 Bigram Analysis (Noun + Adjective)")
@@ -471,7 +517,6 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
     st.subheader("🔍 Key Insights:")
     
     # Find categories with high volume but low reviews
-    category_metrics['review_volume_ratio'] = category_metrics['Avg_Review'] / (category_metrics['Total_Sales'] / 1000)
     problematic_categories = category_metrics[
         (category_metrics['Total_Sales'] > category_metrics['Total_Sales'].quantile(0.7)) & 
         (category_metrics['Avg_Review'] < category_metrics['Avg_Review'].median())
@@ -564,64 +609,18 @@ def menu_market_expansion(orders, customers, order_reviews):
         st.plotly_chart(fig_scatter, use_container_width=True)
     
     with col2:
-        st.subheader("🎯 Market Segment Distribution")
+            st.subheader("🟡 Expansion Targets (High Score - Low Volume)")
+            expansion_targets_detailed = state_analysis[state_analysis['Market_Segment'] == 'Expansion Target'].sort_values('Avg_Review_Score', ascending=False)
+            if len(expansion_targets_detailed) > 0:
+                st.dataframe(expansion_targets_detailed[['State', 'Order_Count', 'Avg_Review_Score']].head(10))
+            else:
+                st.write("No expansion targets identified.")
         
-        segment_dist = state_analysis['Market_Segment'].value_counts()
-        
-        fig_pie = px.pie(
-            values=segment_dist.values,
-            names=segment_dist.index,
-            title='States by Market Segment',
-            color_discrete_map={
-                'Strong Market': 'green',
-                'Expansion Target': 'gold',
-                'Volume Leader': 'blue',
-                'Evaluate/Leave': 'red'
-            }
-        )
-        st.plotly_chart(fig_pie, use_container_width=True)
-        
-        st.subheader("📈 Top Expansion Targets")
-        expansion_targets = state_analysis[state_analysis['Market_Segment'] == 'Expansion Target'].sort_values('Avg_Review_Score', ascending=False)
-        
-        if len(expansion_targets) > 0:
-            fig_targets = px.bar(
-                expansion_targets.head(10),
-                x='Avg_Review_Score',
-                y='State',
-                orientation='h',
-                color='Order_Count',
-                title='Top Expansion Target States',
-                color_continuous_scale='Blues'
-            )
-            fig_targets.update_layout(height=400)
-            st.plotly_chart(fig_targets, use_container_width=True)
-        else:
-            st.write("Tidak ada target ekspansi yang teridentifikasi.")
-    
-    # Detailed analysis
-    st.subheader("🌍 Detailed Market Analysis")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("🟢 Strong Markets (High Score - High Volume)")
-        strong_markets = state_analysis[state_analysis['Market_Segment'] == 'Strong Market'].sort_values('Order_Count', ascending=False)
-        if len(strong_markets) > 0:
-            st.dataframe(strong_markets[['State', 'Order_Count', 'Avg_Review_Score']].head(10))
-        else:
-            st.write("No strong markets identified.")
-    
-    with col2:
-        st.subheader("🟡 Expansion Targets (High Score - Low Volume)")
-        expansion_targets_detailed = state_analysis[state_analysis['Market_Segment'] == 'Expansion Target'].sort_values('Avg_Review_Score', ascending=False)
-        if len(expansion_targets_detailed) > 0:
-            st.dataframe(expansion_targets_detailed[['State', 'Order_Count', 'Avg_Review_Score']].head(10))
-        else:
-            st.write("No expansion targets identified.")
-    
     # Insights
     st.subheader("🔍 Key Insights:")
+        
+    # PERBAIKAN 1: Definisikan strong_markets
+    strong_markets = state_analysis[state_analysis['Market_Segment'] == 'Strong Market']
     
     insights = []
     if len(expansion_targets_detailed) > 0:
@@ -668,21 +667,21 @@ def main():
         orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers
     )
 
-    # Process review data for sentiment analysis - FIXED TO USE RegexpTokenizer
+    # Process review data for sentiment analysis
     df = order_reviews[['review_score', 'review_comment_message']].copy()
     df = df.dropna(subset=['review_comment_message'])
     
     # Apply sentiment labeling
     df['sentiment'] = df['review_score'].apply(label_sentiment)
     
-    # Apply tokenization using RegexpTokenizer
-    df['tokens'] = df['review_comment_message'].apply(clean_text)
+    # Apply tokenization 
+    df['tokens'] = df['review_comment_message'].apply(lambda x: clean_text(x, stop_words))
     
-    # Extract noun + adjective bigrams
-    df['noun_adj_bigrams'] = df['tokens'].apply(extract_noun_adj_bigrams)
+    # PERBAIKAN 3: Extract noun + adjective bigrams dengan lambda
+    df['noun_adj_bigrams'] = df['tokens'].apply(lambda tokens: extract_noun_adj_bigrams(tokens, nlp))
 
-    # Simpan ke session_state atau global jika ingin dipakai lintas fungsi:
-    st.session_state.df = df  # <- atau pakai global df
+    # Simpan ke session_state
+    st.session_state.df = df
 
     # KPI Summary
     display_kpi_summary(orders, order_reviews, order_payments)
@@ -698,11 +697,11 @@ def main():
         ]
     )
 
-    # Menu handler
+    # PERBAIKAN 2: Menu handler dengan parameter yang benar
     if menu_option == "🔥 Menu 1: Evaluasi Pengiriman":
         menu_delivery_evaluation(orders, customers, geolocation)
     elif menu_option == "🔥 Menu 2: Analisis Sentimen":
-        menu_sentiment_analysis(order_reviews, order_items, products, product_translation)
+        menu_sentiment_analysis(order_reviews, order_items, products, product_translation, nlp, stop_words)
     elif menu_option == "🔥 Menu 3: Peluang Ekspansi Pasar":
         menu_market_expansion(orders, customers, order_reviews)
 
