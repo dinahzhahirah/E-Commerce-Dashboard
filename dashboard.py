@@ -20,7 +20,7 @@ import zipfile
 import os
 
 # Unduh file dari Google Drive
-url = "https://drive.google.com/drive/folders/1DYalJ1kEVPClMaEgt8kzgrzUNa7ZGQ2F?usp=sharing"
+url = "https://drive.google.com/drive/folders/16dSUlS6PqGY4NNVHiChW0qlqK6PgI-OD?usp=drive_link"
 output = "data.zip"
 gdown.download(url, output, quiet=False)
 
