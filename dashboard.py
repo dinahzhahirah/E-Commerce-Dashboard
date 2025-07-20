@@ -381,76 +381,71 @@ def menu_delivery_evaluation(orders, customers, geolocation):
     # Tampilkan di Streamlit
     st.plotly_chart(fig_map, use_container_width=True)
 
-    # Membuat dua kolom untuk chart
-    col1, col2 = st.columns(2)
+    # Bar chart TOP 5 States dengan Average Delivery Delay TERTINGGI (paling jauh dari 0)
+    top5_worst = state_metrics_geo.sort_values('Avg_Delay_Days', ascending=True).head(5)  # ascending=True karena nilai negatif, yang terkecil = terjauh dari 0
+    
+    fig_delay_worst = px.bar(
+        top5_worst.sort_values('Avg_Delay_Days', ascending=True),  # sort ascending untuk tampil dari kecil ke besar
+        x='Avg_Delay_Days',
+        y='State_Full',
+        orientation='h',
+        color='Avg_Delay_Days',
+        color_continuous_scale='Reds',
+        title='Top 5 States with Highest Delivery Delay (Furthest from 0)',
+        labels={
+            'State_Full': 'State',
+            'Avg_Delay_Days': 'Average Delivery Delay (days)'
+        },
+        text='Avg_Delay_Days'
+    )
 
-    # Bar chart TOP 5 States dengan Average Delivery Delay TERTINGGI
-    with col1:
-        top5_worst = state_metrics_geo.sort_values('Avg_Delay_Days', ascending=False).head(5)
-        
-        fig_delay_worst = px.bar(
-            top5_worst.sort_values('Avg_Delay_Days', ascending=True),  # sort ascending untuk tampil dari kecil ke besar
-            x='Avg_Delay_Days',
-            y='State_Full',
-            orientation='h',
-            color='Avg_Delay_Days',
-            color_continuous_scale='Reds',
-            title='Top 5 States with Highest Delivery Delay',
-            labels={
-                'State_Full': 'State',
-                'Avg_Delay_Days': 'Average Delivery Delay (days)'
-            },
-            text='Avg_Delay_Days'
-        )
+    fig_delay_worst.update_layout(
+        height=400,
+        margin=dict(l=120),
+        showlegend=False
+    )
+    
+    fig_delay_worst.update_traces(
+        marker=dict(line=dict(width=0)),
+        textposition='auto',
+        texttemplate='%{text:.2f}',
+        textfont_size=11
+    )
+    
+    st.plotly_chart(fig_delay_worst, use_container_width=True)
 
-        fig_delay_worst.update_layout(
-            height=400,
-            margin=dict(l=120),
-            showlegend=False
-        )
-        
-        fig_delay_worst.update_traces(
-            marker=dict(line=dict(width=0)),
-            textposition='auto',
-            texttemplate='%{text:.2f}',
-            textfont_size=11
-        )
-        
-        st.plotly_chart(fig_delay_worst, use_container_width=True)
+    # Bar chart TOP 5 States dengan Average Delivery Delay TERENDAH (paling mendekati 0)
+    top5_best = state_metrics_geo.sort_values('Avg_Delay_Days', ascending=False).head(5)  # ascending=False karena nilai negatif, yang terbesar = terdekat ke 0
+    
+    fig_delay_best = px.bar(
+        top5_best.sort_values('Avg_Delay_Days', ascending=False),  # sort descending untuk tampil dari besar ke kecil
+        x='Avg_Delay_Days',
+        y='State_Full',
+        orientation='h',
+        color='Avg_Delay_Days',
+        color_continuous_scale='Greens_r',  # Gunakan warna hijau untuk yang terbaik
+        title='Top 5 States with Lowest Delivery Delay (Closest to 0)',
+        labels={
+            'State_Full': 'State',
+            'Avg_Delay_Days': 'Average Delivery Delay (days)'
+        },
+        text='Avg_Delay_Days'
+    )
 
-    # Bar chart TOP 5 States dengan Average Delivery Delay TERENDAH (paling sedikit keterlambatan)
-    with col2:
-        top5_best = state_metrics_geo.sort_values('Avg_Delay_Days', ascending=True).head(5)
-        
-        fig_delay_best = px.bar(
-            top5_best.sort_values('Avg_Delay_Days', ascending=False),  # sort descending untuk tampil dari besar ke kecil
-            x='Avg_Delay_Days',
-            y='State_Full',
-            orientation='h',
-            color='Avg_Delay_Days',
-            color_continuous_scale='Greens_r',  # Gunakan warna hijau untuk yang terbaik
-            title='Top 5 States with Lowest Delivery Delay',
-            labels={
-                'State_Full': 'State',
-                'Avg_Delay_Days': 'Average Delivery Delay (days)'
-            },
-            text='Avg_Delay_Days'
-        )
-
-        fig_delay_best.update_layout(
-            height=400,
-            margin=dict(l=120),
-            showlegend=False
-        )
-        
-        fig_delay_best.update_traces(
-            marker=dict(line=dict(width=0)),
-            textposition='auto',
-            texttemplate='%{text:.2f}',
-            textfont_size=11
-        )
-        
-        st.plotly_chart(fig_delay_best, use_container_width=True)
+    fig_delay_best.update_layout(
+        height=400,
+        margin=dict(l=120),
+        showlegend=False
+    )
+    
+    fig_delay_best.update_traces(
+        marker=dict(line=dict(width=0)),
+        textposition='auto',
+        texttemplate='%{text:.2f}',
+        textfont_size=11
+    )
+    
+    st.plotly_chart(fig_delay_best, use_container_width=True)
 
 def menu_sentiment_analysis(order_reviews, order_items, products, product_translation, nlp, stop_words):
     """Menu 2: Sentiment Analysis"""
