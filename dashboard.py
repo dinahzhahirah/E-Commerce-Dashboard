@@ -584,53 +584,70 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
     product_reviews = product_reviews.merge(products, on='product_id', how='left')
     product_reviews = product_reviews.merge(product_translation, on='product_category_name', how='left')
     
-    # Calculate metrics by category
+    # Hitung metrik per kategori
     category_metrics = product_reviews.groupby('product_category_name_english').agg({
         'order_id': 'count',
         'review_score': 'mean'
     }).reset_index()
-    category_metrics.columns = ['Category', 'Total_Sales', 'Avg_Review']
-    category_metrics = category_metrics.dropna()
+    category_metrics.columns = ['Category', 'Total Sales', 'Average Score Review']
+    category_metrics = category_metrics.dropna().sort_values('Total Sales', ascending=False).head(15)
     
-    # Prepare Top 10 Sales (sorted descending)
-    top_sales = category_metrics.sort_values('Total_Sales', ascending=False).head(10)
-    top_sales = top_sales.sort_values('Total_Sales', ascending=True)  # so largest at top (horizontal bar)
+    # Tentukan warna teks berdasarkan nilai
+    threshold_sales = category_metrics['Total Sales'].median()
+    threshold_review = category_metrics['Average Score Review'].median()
     
-    # Prepare Top 10 Reviews (sorted descending)
-    top_review = category_metrics.sort_values('Avg_Review', ascending=False).head(10)
-    top_review = top_review.sort_values('Avg_Review', ascending=True)  # so highest at top
+    category_metrics['Sales_Text_Color'] = category_metrics['Total Sales'].apply(
+        lambda x: 'white' if x > threshold_sales else 'black'
+    )
+    category_metrics['Review_Text_Color'] = category_metrics['Average Score Review'].apply(
+        lambda x: 'white' if x > threshold_review else 'black'
+    )
     
-    # Layout with two columns
+    # Buat layout 2 kolom
     col1, col2 = st.columns(2)
     
     with col1:
         fig_sales = px.bar(
-            top_sales,
-            x='Total_Sales',
+            category_metrics.sort_values('Total Sales', ascending=True).tail(10),
+            x='Total Sales',
             y='Category',
             orientation='h',
-            text='Total_Sales',
-            title='Top 10 Categories by Sales',
-            color='Total_Sales',
-            color_continuous_scale='Blues'
+            color='Total Sales',
+            color_continuous_scale='Blues',
+            text='Total Sales'
         )
-        fig_sales.update_traces(textposition='inside', textfont_color='white')
-        fig_sales.update_layout(height=400, yaxis=dict(title=None))
+        fig_sales.update_traces(
+            texttemplate='%{text}',
+            textposition='inside',
+            insidetextfont=dict(color=category_metrics.sort_values('Total Sales', ascending=True).tail(10)['Sales_Text_Color'])
+        )
+        fig_sales.update_layout(
+            height=400,
+            title='Top 10 Categories by Sales',
+            coloraxis_showscale=False  # HILANGKAN COLORBAR
+        )
         st.plotly_chart(fig_sales, use_container_width=True)
     
     with col2:
         fig_review = px.bar(
-            top_review,
-            x='Avg_Review',
+            category_metrics.sort_values('Average Score Review', ascending=True).tail(10),
+            x='Average Score Review',
             y='Category',
             orientation='h',
-            text=top_review['Avg_Review'].round(2),
-            title='Top 10 Categories by Review Score',
-            color='Avg_Review',
-            color_continuous_scale='Greens'
+            color='Average Score Review',
+            color_continuous_scale='Greens',
+            text='Average Score Review'
         )
-        fig_review.update_traces(textposition='inside', textfont_color='black')
-        fig_review.update_layout(height=400, yaxis=dict(title=None), coloraxis_showscale=False)
+        fig_review.update_traces(
+            texttemplate='%{text:.2f}',
+            textposition='inside',
+            insidetextfont=dict(color=category_metrics.sort_values('Average Score Review', ascending=True).tail(10)['Review_Text_Color'])
+        )
+        fig_review.update_layout(
+            height=400,
+            title='Top 10 Categories by Review Score',
+            coloraxis_showscale=False  # HILANGKAN COLORBAR
+        )
         st.plotly_chart(fig_review, use_container_width=True)
 
 def menu_market_expansion(orders, customers, order_reviews):
