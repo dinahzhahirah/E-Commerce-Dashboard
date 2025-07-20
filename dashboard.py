@@ -486,31 +486,45 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
     fig_aspect_bar = go.Figure(data=[
         go.Bar(
             name='Positive',
-            x=aspect_df['Aspect'],
-            y=aspect_df['Positive'],
+            x=aspect_df['Positive'],
+            y=aspect_df['Aspect'],
+            orientation='h',  # Horizontal bar
             marker_color='#d2601a',
             text=aspect_df['Positive'],
             textposition='inside',
             insidetextanchor='start',
-            textfont=dict(color='white', size=12)
+            textfont=dict(color='white', size=16)  # Perbesar teks
         ),
         go.Bar(
             name='Negative',
-            x=aspect_df['Aspect'],
-            y=aspect_df['Negative'],
+            x=aspect_df['Negative'],
+            y=aspect_df['Aspect'],
+            orientation='h',
             marker_color='#f4b183',
             text=aspect_df['Negative'],
             textposition='inside',
             insidetextanchor='end',
-            textfont=dict(color='black', size=12)
+            textfont=dict(color='black', size=16)  # Perbesar teks
         )
     ])
     
     fig_aspect_bar.update_layout(
         barmode='stack',
         title='Sentiment Distribution by Aspect (Positive vs Negative)',
-        xaxis_title='Aspect',
-        yaxis_title='Count',
+        xaxis_title='Count',
+        yaxis_title='Aspect',
+        title_font=dict(size=20),
+        xaxis=dict(
+            showgrid=False,  # Hapus gridline x
+            title_font=dict(size=16),
+            tickfont=dict(size=14)
+        ),
+        yaxis=dict(
+            showgrid=False,  # Hapus gridline y
+            title_font=dict(size=16),
+            tickfont=dict(size=14)
+        ),
+        plot_bgcolor='white',  # Warna background bersih
         height=400
     )
     
@@ -586,7 +600,6 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("📈 Top Categories by Sales Volume")
         fig_sales = px.bar(
             category_metrics.head(10),
             x='Total_Sales',
@@ -598,7 +611,6 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
         st.plotly_chart(fig_sales, use_container_width=True)
     
     with col2:
-        st.subheader("⭐ Top Categories by Review Score")
         fig_review = px.bar(
             category_metrics.sort_values('Avg_Review', ascending=False).head(10),
             x='Avg_Review',
