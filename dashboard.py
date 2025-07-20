@@ -424,115 +424,97 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
     st.subheader("Sentiment Analysis Overview")
     
     # Display basic sentiment statistics
-    col1, col2 = st.columns(2)
+    st.subheader("Sentiment Distribution by Aspect")
     
-    with col1:
-        # Sentiment distribution
-        sentiment_counts = df['sentiment'].value_counts()
-        fig_sentiment = px.pie(
-            values=sentiment_counts.values,
-            names=sentiment_counts.index,
-            title='Sentiment Distribution',
-            color_discrete_map={
-                'Positive': 'green',
-                'Neutral': 'yellow',
-                'Negative': 'red'
-            }
-        )
-        st.plotly_chart(fig_sentiment, use_container_width=True)
+    # Inisialisasi VADER
+    vader_analyzer = SentimentIntensityAnalyzer()
     
-    with col2:
-        # Aspect-based sentiment analysis
-        # Inisialisasi VADER
-        vader_analyzer = SentimentIntensityAnalyzer()
-        
-        # Fungsi label sentimen dengan VADER
-        def label_sentiment_vader(text):
-            if not text or pd.isna(text):
-                return 'Neutral'
-            score = vader_analyzer.polarity_scores(text)
-            compound = score['compound']
-            if compound >= 0.05:
-                return 'Positive'
-            elif compound <= -0.05:
-                return 'Negative'
-            else:
-                return 'Neutral'
-        
-        # Fungsi klasifikasi ABSA dengan VADER
-        def klasifikasi_absa_vader(text):
-            hasil = {
-                "Buyer Preferences": None,
-                "Product Quality": None,
-                "Delivery Performance": None
-            }
-        
-            aspek_dict = {
-                "Buyer Preferences": ["gostei", "odiei", "amei", "detesto"],
-                "Product Quality": ["produto", "qualidade", "defeito", "quebrado", "bom"],
-                "Delivery Performance": ["entrega", "prazo", "transportadora", "rápido", "atrasado"]
-            }
-        
-            for aspek, keywords in aspek_dict.items():
-                if any(k in text.lower() for k in keywords):
-                    hasil[aspek] = label_sentiment_vader(text)
-        
-            return hasil
-
-        # Process ABSA
-        df["aspek_sentimen"] = df["review_comment_message"].apply(klasifikasi_absa_vader)
-
-        # Calculate aspect counts
-        aspect_counts = {
-            "Buyer Preferences": {"Positive": 0, "Neutral": 0, "Negative": 0},
-            "Product Quality": {"Positive": 0, "Neutral": 0, "Negative": 0},
-            "Delivery Performance": {"Positive": 0, "Neutral": 0, "Negative": 0}
+    # Fungsi label sentimen dengan VADER
+    def label_sentiment_vader(text):
+        if not text or pd.isna(text):
+            return 'Neutral'
+        score = vader_analyzer.polarity_scores(text)
+        compound = score['compound']
+        if compound >= 0.05:
+            return 'Positive'
+        elif compound <= -0.05:
+            return 'Negative'
+        else:
+            return 'Neutral'
+    
+    # Fungsi klasifikasi ABSA dengan VADER
+    def klasifikasi_absa_vader(text):
+        hasil = {
+            "Buyer Preferences": None,
+            "Product Quality": None,
+            "Delivery Performance": None
         }
-        
-        # Count sentiment labels for each aspect
-        for hasil in df["aspek_sentimen"]:
-            for aspek, label in hasil.items():
-                if label in ["Positive", "Negative"]:  # Only count Positive & Negative
-                    aspect_counts[aspek][label] += 1
-
-        # Convert to DataFrame for plotting
-        aspect_df = pd.DataFrame(aspect_counts).T  # Transpose
-        aspect_df = aspect_df[['Positive', 'Negative']]  # Hanya ambil dua kolom
-        aspect_df = aspect_df.reset_index().rename(columns={'index': 'Aspect'})
-
-        # Stacked Bar Chart
-        fig_aspect_bar = go.Figure(data=[
-            go.Bar(
-                name='Positive',
-                x=aspect_df['Aspect'],
-                y=aspect_df['Positive'],
-                marker_color='#d2601a',
-                text=aspect_df['Positive'],
-                textposition='inside',
-                insidetextanchor='start',
-                textfont=dict(color='white', size=12)
-            ),
-            go.Bar(
-                name='Negative',
-                x=aspect_df['Aspect'],
-                y=aspect_df['Negative'],
-                marker_color='#f4b183',
-                text=aspect_df['Negative'],
-                textposition='inside',
-                insidetextanchor='end',
-                textfont=dict(color='black', size=12)
-            )
-        ])
-        
-        fig_aspect_bar.update_layout(
-            barmode='stack',
-            title='Sentiment Distribution by Aspect (Positive vs Negative)',
-            xaxis_title='Aspect',
-            yaxis_title='Count',
-            height=400
+    
+        aspek_dict = {
+            "Buyer Preferences": ["gostei", "odiei", "amei", "detesto"],
+            "Product Quality": ["produto", "qualidade", "defeito", "quebrado", "bom"],
+            "Delivery Performance": ["entrega", "prazo", "transportadora", "rápido", "atrasado"]
+        }
+    
+        for aspek, keywords in aspek_dict.items():
+            if any(k in text.lower() for k in keywords):
+                hasil[aspek] = label_sentiment_vader(text)
+    
+        return hasil
+    
+    # Process ABSA
+    df["aspek_sentimen"] = df["review_comment_message"].apply(klasifikasi_absa_vader)
+    
+    # Hitung hasil
+    aspect_counts = {
+        "Buyer Preferences": {"Positive": 0, "Neutral": 0, "Negative": 0},
+        "Product Quality": {"Positive": 0, "Neutral": 0, "Negative": 0},
+        "Delivery Performance": {"Positive": 0, "Neutral": 0, "Negative": 0}
+    }
+    
+    for hasil in df["aspek_sentimen"]:
+        for aspek, label in hasil.items():
+            if label in ["Positive", "Negative"]:
+                aspect_counts[aspek][label] += 1
+    
+    # Convert ke DataFrame
+    aspect_df = pd.DataFrame(aspect_counts).T
+    aspect_df = aspect_df[['Positive', 'Negative']]
+    aspect_df = aspect_df.reset_index().rename(columns={'index': 'Aspect'})
+    
+    # Stacked Bar Chart with labels
+    fig_aspect_bar = go.Figure(data=[
+        go.Bar(
+            name='Positive',
+            x=aspect_df['Aspect'],
+            y=aspect_df['Positive'],
+            marker_color='#d2601a',
+            text=aspect_df['Positive'],
+            textposition='inside',
+            insidetextanchor='start',
+            textfont=dict(color='white', size=12)
+        ),
+        go.Bar(
+            name='Negative',
+            x=aspect_df['Aspect'],
+            y=aspect_df['Negative'],
+            marker_color='#f4b183',
+            text=aspect_df['Negative'],
+            textposition='inside',
+            insidetextanchor='end',
+            textfont=dict(color='black', size=12)
         )
-        
-        st.plotly_chart(fig_aspect_bar, use_container_width=True)
+    ])
+    
+    fig_aspect_bar.update_layout(
+        barmode='stack',
+        title='Sentiment Distribution by Aspect (Positive vs Negative)',
+        xaxis_title='Aspect',
+        yaxis_title='Count',
+        height=400
+    )
+    
+    st.plotly_chart(fig_aspect_bar, use_container_width=True)
     
     # Bigram Analysis
     st.subheader("Bigram Analysis (Noun + Adjective)")
