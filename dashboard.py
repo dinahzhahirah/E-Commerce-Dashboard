@@ -525,7 +525,7 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
         st.plotly_chart(fig_aspect_bar, use_container_width=True)
     
     # Bigram Analysis
-    st.subheader("🔍 Bigram Analysis (Noun + Adjective)")
+    st.subheader("Bigram Analysis (Noun + Adjective)")
     
     # Collect all bigrams
     all_bigrams = []
@@ -576,7 +576,7 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
         st.warning("No bigrams found in the review data.")
 
     # Product analysis
-    st.subheader("🛒 Product Performance Analysis")
+    st.subheader("Product Performance Analysis")
     
     # Merge product data
     product_reviews = order_items.merge(order_reviews, on='order_id', how='left')
@@ -672,7 +672,7 @@ def menu_market_expansion(orders, customers, order_reviews):
     # Show expansion targets
     expansion_targets = state_analysis[state_analysis['Market_Segment'] == 'Expansion Target']
     if len(expansion_targets) > 0:
-        st.subheader("🎯 Expansion Targets")
+        st.subheader("Expansion Targets")
         st.dataframe(expansion_targets.sort_values('Avg_Review_Score', ascending=False))
 
 def main():
@@ -709,6 +709,9 @@ def main():
     # Extract noun + adjective bigrams
     df['noun_adj_bigrams'] = df['tokens'].apply(lambda tokens: extract_noun_adj_bigrams(tokens, nlp))
 
+    st.write("Sample tokens:", df['tokens'].head(5))
+    st.write("Sample bigrams:", df['noun_adj_bigrams'].head(5))
+
     # Save to session_state
     st.session_state.df = df
 
@@ -720,18 +723,18 @@ def main():
     menu_option = st.sidebar.selectbox(
         "Choose Analysis Menu:",
         [
-            "🔥 Menu 1: Delivery Evaluation",
-            "🔥 Menu 2: Sentiment Analysis", 
-            "🔥 Menu 3: Market Expansion"
+            "Menu 1: Delivery Evaluation",
+            "Menu 2: Sentiment Analysis", 
+            "Menu 3: Market Expansion"
         ]
     )
 
     # Menu handlers
-    if menu_option == "🔥 Menu 1: Delivery Evaluation":
+    if menu_option == "Menu 1: Delivery Evaluation":
         menu_delivery_evaluation(orders, customers, geolocation)
-    elif menu_option == "🔥 Menu 2: Sentiment Analysis":
+    elif menu_option == "Menu 2: Sentiment Analysis":
         menu_sentiment_analysis(order_reviews, order_items, products, product_translation, nlp, stop_words)
-    elif menu_option == "🔥 Menu 3: Market Expansion":
+    elif menu_option == "Menu 3: Market Expansion":
         menu_market_expansion(orders, customers, order_reviews)
 
 # Add Kangturu label at bottom left
