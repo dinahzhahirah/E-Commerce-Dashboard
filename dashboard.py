@@ -106,97 +106,47 @@ def get_portuguese_stopwords():
         }
 
 @st.cache_data
-def load_sample_data():
-    """Create sample data for testing when actual data is not available"""
-    
-    # Generate sample orders data
-    np.random.seed(42)
-    n_orders = 1000
-    
-    orders = pd.DataFrame({
-        'order_id': [f'order_{i}' for i in range(n_orders)],
-        'customer_id': [f'customer_{np.random.randint(1, 500)}' for _ in range(n_orders)],
-        'order_status': np.random.choice(['delivered', 'shipped', 'processing'], n_orders, p=[0.8, 0.15, 0.05]),
-        'order_purchase_timestamp': pd.date_range('2022-01-01', '2023-12-31', periods=n_orders),
-        'order_delivered_customer_date': pd.date_range('2022-01-01', '2024-01-31', periods=n_orders),
-        'order_estimated_delivery_date': pd.date_range('2022-01-01', '2024-01-31', periods=n_orders)
-    })
-    
-    # Generate sample customers data
-    states = ['SP', 'RJ', 'MG', 'RS', 'PR', 'SC', 'BA', 'GO', 'ES', 'PE']
-    customers = pd.DataFrame({
-        'customer_id': [f'customer_{i}' for i in range(1, 501)],
-        'customer_state': np.random.choice(states, 500)
-    })
-    
-    # Generate sample reviews data
-    review_messages = [
-        "Produto muito bom, chegou rápido e bem embalado",
-        "Entrega atrasada mas produto de qualidade",
-        "Excelente produto, recomendo",
-        "Produto com defeito, não gostei",
-        "Entrega muito rápida, produto excelente",
-        "Qualidade ruim, produto quebrado",
-        "Adorei o produto, chegou antes do prazo",
-        "Produto não corresponde às expectativas"
-    ]
-    
-    order_reviews = pd.DataFrame({
-        'order_id': [f'order_{i}' for i in range(n_orders)],
-        'review_score': np.random.choice([1, 2, 3, 4, 5], n_orders, p=[0.05, 0.1, 0.2, 0.35, 0.3]),
-        'review_comment_message': np.random.choice(review_messages, n_orders)
-    })
-    
-    # Generate sample payments data
-    order_payments = pd.DataFrame({
-        'order_id': [f'order_{i}' for i in range(n_orders)],
-        'payment_value': np.random.exponential(100, n_orders)
-    })
-    
-    # Generate sample products data
-    categories = ['electronics', 'clothing', 'home', 'books', 'sports']
-    products = pd.DataFrame({
-        'product_id': [f'product_{i}' for i in range(200)],
-        'product_category_name': np.random.choice(categories, 200)
-    })
-    
-    # Generate sample order items
-    order_items = pd.DataFrame({
-        'order_id': [f'order_{i}' for i in range(n_orders)],
-        'product_id': [f'product_{np.random.randint(0, 200)}' for _ in range(n_orders)]
-    })
-    
-    # Generate sample geolocation data
-    geolocation = pd.DataFrame({
-        'geolocation_state': states,
-        'geolocation_lat': [-23.5, -22.9, -19.9, -30.0, -25.4, -27.6, -12.9, -16.7, -20.3, -8.0],
-        'geolocation_lng': [-46.6, -43.2, -43.9, -51.2, -49.3, -48.5, -38.5, -49.2, -40.3, -34.9]
-    })
-    
-    # Generate sample product translation
-    product_translation = pd.DataFrame({
-        'product_category_name': categories,
-        'product_category_name_english': ['Electronics', 'Clothing', 'Home & Garden', 'Books', 'Sports']
-    })
-    
-    # Generate sample sellers data
-    sellers = pd.DataFrame({
-        'seller_id': [f'seller_{i}' for i in range(100)],
-        'seller_state': np.random.choice(states, 100)
-    })
-    
-    return orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers
-
-@st.cache_data
 def load_data():
-    """Load data with fallback to sample data"""
+    """Load all datasets from Google Drive"""
     try:
-        # Check if data directory exists
+        # Check if data directory exists, if not create it and download
         if not os.path.exists('data') or not os.listdir('data'):
-            st.info("Data directory not found. Using sample data for demonstration.")
-            return load_sample_data()
-        
-        # Try to load actual data files
+            st.info("Downloading data files from Google Drive...")
+            
+            # Create data directory if it doesn't exist
+            os.makedirs('data', exist_ok=True)
+            
+            # Download individual files from Google Drive
+            # Note: You need to make each file publicly accessible and get the file ID from sharing URL
+            files_to_download = {
+                'customers_dataset.csv': '1MbHCiu8ZbJies0NQ0sTCV4_rESKuDvnJ',
+                'geolocation_dataset.csv': '1VK7B0Cm9RQmJIKljrvVirphZiTEZFdhH', 
+                'order_items_dataset.csv': '1TNfwU1jvMKNaLDRYpA9TDvU77gaAQDmT',
+                'order_payments_dataset.csv': '14b96-g7a2rnM47Ml9axgbcyGMmziW5Md',
+                'order_reviews_dataset.csv': '1hPfX7FO6jHW171FYeTN4QS39hS0K_4CX',
+                'orders_dataset.csv': '1dPxq9qXTSZjrdXQk8IJE3i4U9EEveuw0',
+                'product_category_name_translation.csv': '1H-loSFk7Ef4C6ikjcseb5_kGj7uZ3__l',
+                'products_dataset.csv': '1N8KxKyxHtvae_Gyw6d8btBZBUMxqVRC2',
+                'sellers_dataset.csv': '1DAhnXFWFLy84dgsGkCapZB5_2c9x4F_U'
+            }
+            
+            # Download each file
+            for filename, file_id in files_to_download.items():
+                try:
+                    if file_id != 'REPLACE_WITH_ACTUAL_FILE_ID':  # Only download if ID is provided
+                        url = f"https://drive.google.com/uc?id={file_id}"
+                        output_path = f"data/{filename}"
+                        gdown.download(url, output_path, quiet=False)
+                        st.success(f"Downloaded {filename}")
+                    else:
+                        st.warning(f"File ID not provided for {filename}")
+                except Exception as e:
+                    st.error(f"Failed to download {filename}: {e}")
+            
+            st.success("Data download completed!")
+
+        # Load datasets
+        datasets = {}
         required_files = [
             'customers_dataset.csv',
             'geolocation_dataset.csv', 
@@ -209,6 +159,7 @@ def load_data():
             'sellers_dataset.csv'
         ]
         
+        # Check if all required files exist
         missing_files = []
         for filename in required_files:
             filepath = f'data/{filename}'
@@ -216,8 +167,9 @@ def load_data():
                 missing_files.append(filename)
         
         if missing_files:
-            st.warning(f"Missing files: {', '.join(missing_files)}. Using sample data.")
-            return load_sample_data()
+            st.error(f"Missing required files: {', '.join(missing_files)}")
+            st.info("Please download the files manually and place them in the 'data' directory, or provide the correct Google Drive file IDs.")
+            return None
         
         # Load all datasets
         st.info("Loading datasets...")
@@ -232,11 +184,13 @@ def load_data():
         sellers = pd.read_csv('data/sellers_dataset.csv')
         
         st.success("All datasets loaded successfully!")
+        
         return orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers
         
     except Exception as e:
-        st.warning(f"Error loading data: {e}. Using sample data.")
-        return load_sample_data()
+        st.error(f"Error loading data: {e}")
+        st.info("Please make sure all data files are in the 'data' directory")
+        return None
 
 def preprocess_data(orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers):
     """Preprocess data for analysis"""
