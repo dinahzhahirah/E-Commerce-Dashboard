@@ -119,7 +119,8 @@ def load_data():
             
             # Download individual files from Google Drive
             # Note: You need to make each file publicly accessible and get the file ID from sharing URL
-            files_to_download = {
+            # File ID Google Drive
+            drive_files = {
                 'customers_dataset.csv': '1MbHCiu8ZbJies0NQ0sTCV4_rESKuDvnJ',
                 'geolocation_dataset.csv': '1VK7B0Cm9RQmJIKljrvVirphZiTEZFdhH', 
                 'order_items_dataset.csv': '1TNfwU1jvMKNaLDRYpA9TDvU77gaAQDmT',
@@ -131,20 +132,15 @@ def load_data():
                 'sellers_dataset.csv': '1DAhnXFWFLy84dgsGkCapZB5_2c9x4F_U'
             }
             
-            # Download each file
-            for filename, file_id in files_to_download.items():
-                try:
-                    if file_id != 'REPLACE_WITH_ACTUAL_FILE_ID':  # Only download if ID is provided
-                        url = f"https://drive.google.com/uc?id={file_id}"
-                        output_path = f"data/{filename}"
-                        gdown.download(url, output_path, quiet=False)
-                        st.success(f"Downloaded {filename}")
-                    else:
-                        st.warning(f"File ID not provided for {filename}")
-                except Exception as e:
-                    st.error(f"Failed to download {filename}: {e}")
+            # Buat folder data jika belum ada
+            os.makedirs('data', exist_ok=True)
             
-            st.success("Data download completed!")
+            # Unduh file jika belum ada
+            for filename, file_id in drive_files.items():
+                filepath = f'data/{filename}'
+                if not os.path.exists(filepath):
+                    url = f'https://drive.google.com/uc?id={file_id}'
+                    gdown.download(url, filepath, quiet=False)
 
         # Load datasets
         datasets = {}
