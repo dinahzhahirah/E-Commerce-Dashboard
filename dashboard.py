@@ -15,6 +15,18 @@ from collections import Counter
 import string
 import warnings
 warnings.filterwarnings('ignore')
+import gdown
+import zipfile
+import os
+
+# Unduh file dari Google Drive
+url = "https://drive.google.com/drive/folders/1DYalJ1kEVPClMaEgt8kzgrzUNa7ZGQ2F?usp=sharing"
+output = "data.zip"
+gdown.download(url, output, quiet=False)
+
+# Ekstrak zip
+with zipfile.ZipFile(output, 'r') as zip_ref:
+    zip_ref.extractall("data")
 
 # Load spaCy Portuguese model
 @st.cache_resource
@@ -45,16 +57,16 @@ st.set_page_config(
 def load_data():
     """Load all datasets"""
     try:
-        orders = pd.read_csv('data\\orders_dataset.csv')
-        customers = pd.read_csv('data\\customers_dataset.csv')
-        order_items = pd.read_csv('data\\order_items_dataset.csv')
-        order_payments = pd.read_csv('data\\order_payments_dataset.csv')
-        order_reviews = pd.read_csv('data\\order_reviews_dataset.csv')
-        products = pd.read_csv('data\\products_dataset.csv')
-        product_translation = pd.read_csv('data\\product_category_name_translation.csv')
-        geolocation = pd.read_csv('data\\geolocation_dataset.csv')
-        sellers = pd.read_csv('data\\sellers_dataset.csv')
-        
+        orders = pd.read_csv('data/orders_dataset.csv')
+        customers = pd.read_csv('data/customers_dataset.csv')
+        order_items = pd.read_csv('data/order_items_dataset.csv')
+        order_payments = pd.read_csv('data/order_payments_dataset.csv')
+        order_reviews = pd.read_csv('data/order_reviews_dataset.csv')
+        products = pd.read_csv('data/products_dataset.csv')
+        product_translation = pd.read_csv('data/product_category_name_translation.csv')
+        geolocation = pd.read_csv('data/geolocation_dataset.csv')
+        sellers = pd.read_csv('data/sellers_dataset.csv')
+
         return orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers
     except Exception as e:
         st.error(f"Error loading data: {e}")
