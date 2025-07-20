@@ -12,6 +12,7 @@ import spacy
 from collections import Counter
 import string
 import warnings
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 warnings.filterwarnings('ignore')
 import gdown
 import zipfile
@@ -72,6 +73,14 @@ def create_fallback_nlp():
                 self.pos_ = "OTHER"
     
     return FallbackNLP()
+
+@st.cache_resource
+def load_absa_model():
+    model_name = "pierreguillou/bert-base-cased-sentiment-analysis-sst-2-portuguese"
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSequenceClassification.from_pretrained(model_name)
+    sentiment_pipeline = pipeline("sentiment-analysis", model=model, tokenizer=tokenizer)
+    return sentiment_pipeline
 
 # Get Portuguese stopwords
 @st.cache_data
@@ -451,16 +460,18 @@ def menu_delivery_evaluation(orders, customers, geolocation):
     st.plotly_chart(fig_delay_best, use_container_width=True)
 
 def menu_sentiment_analysis(order_reviews, order_items, products, product_translation, nlp, stop_words):
-    """Menu 2: Sentiment Analysis"""
-    st.header("Menu 2: Sentiment Analysis")
+    st.header("MENU 2: Analisis Sentimen Aspek 'Pengiriman' dan 'Produk'")
     
     # Get preprocessed data from session state
     if 'df' not in st.session_state:
-        st.error("Data not processed. Please refresh the page.")
+        st.error("Data belum diproses. Silakan refresh halaman.")
         return
     
     df = st.session_state.df
     
+    st.subheader("Sentiment Analysis Overview")
+    
+    # Display basic sentiment statistics
     col1, col2 = st.columns(2)
     
     with col1:
@@ -469,42 +480,162 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
         fig_sentiment = px.pie(
             values=sentiment_counts.values,
             names=sentiment_counts.index,
-            title='Sentiment Distribution'
+            title='Sentiment Distribution',
+            color_discrete_map={
+                'Positive': 'green',
+                'Neutral': 'yellow',
+                'Negative': 'red'
+            }
         )
         st.plotly_chart(fig_sentiment, use_container_width=True)
     
     with col2:
-        # Review score distribution
-        fig_scores = px.histogram(
-            df, 
-            x='review_score',
-            title='Review Score Distribution',
-            nbins=5
+        # Aspect-based sentiment analysis
+        aspek_dict = {
+            "Buyer Preferences": ["gostei", "não gostei", "amei", "odiei", "adoro", "detesto"],
+            "Product Quality": ["produto", "qualidade", "defeito", "bom", "ruim", "quebrado"],
+            "Delivery Performance": ["entrega", "prazo", "transportadora", "rápido", "atrasado"]
+        }
+
+        def klasifikasi_sentimen_absa(text, sentiment_pipeline):
+            if pd.isna(text):
+                return {"Buyer Preferences": None, "Product Quality": None, "Delivery Performance": None}
+        
+            text = text.lower()
+            aspek_dict = {
+                "Buyer Preferences": ["gostei", "não gostei", "amei", "odiei", "adoro", "detesto"],
+                "Product Quality": ["produto", "qualidade", "defeito", "bom", "ruim", "quebrado"],
+                "Delivery Performance": ["entrega", "prazo", "transportadora", "rápido", "atrasado"]
+            }
+        
+            hasil = {"Buyer Preferences": None, "Product Quality": None, "Delivery Performance": None}
+        
+            for aspek, kata_kunci in aspek_dict.items():
+                if any(kata in text for kata in kata_kunci):
+                    hasil_model = sentiment_pipeline(text[:512])[0]  # potong untuk jaga-jaga token limit
+                    hasil[aspek] = hasil_model["label"]
+        
+            return hasil
+
+        # Process ABSA
+        df["aspek_sentimen"] = df["review_comment_message"].apply(klasifikasi_sentimen)
+
+        # Calculate aspect counts
+        aspect_counts = {
+            "Buyer Preferences": 0,
+            "Product Quality": 0,
+            "Delivery Performance": 0
+        }
+
+        for hasil in df["aspek_sentimen"]:
+            for aspek, count in hasil.items():
+                aspect_counts[aspek] += count
+
+        # Create bar chart
+        fig_aspects = px.bar(
+            x=list(aspect_counts.keys()),
+            y=list(aspect_counts.values()),
+            title='Aspect-Based Sentiment Distribution',
+            labels={'x': 'Aspect', 'y': 'Keyword Frequency'},
+            color=list(aspect_counts.values()),
+            color_continuous_scale='viridis'
         )
-        st.plotly_chart(fig_scores, use_container_width=True)
+        st.plotly_chart(fig_aspects, use_container_width=True)
     
     # Bigram Analysis
-    st.subheader("🔍 Bigram Analysis")
+    st.subheader("🔍 Bigram Analysis (Noun + Adjective)")
     
+    # Collect all bigrams
     all_bigrams = []
     for bigrams in df['noun_adj_bigrams']:
-        if bigrams:
+        if bigrams:  # Check if not empty
             all_bigrams.extend(bigrams)
     
     if all_bigrams:
         bigram_counts = Counter(all_bigrams)
-        top_bigrams = dict(bigram_counts.most_common(15))
+        top_bigrams = dict(bigram_counts.most_common(20))
         
-        if top_bigrams:
-            bigram_df = pd.DataFrame(list(top_bigrams.items()), columns=['Bigram', 'Count'])
-            fig_bigram = px.bar(
-                bigram_df.sort_values('Count', ascending=True),
-                x='Count',
-                y='Bigram',
-                orientation='h',
-                title='Top Bigrams (Noun + Adjective)'
-            )
-            st.plotly_chart(fig_bigram, use_container_width=True)
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # WordCloud
+            if top_bigrams:
+                wc = WordCloud(
+                    width=800, 
+                    height=400, 
+                    background_color='white',
+                    colormap='viridis'
+                ).generate_from_frequencies(top_bigrams)
+                
+                fig_wc, ax = plt.subplots(figsize=(10, 6))
+                ax.imshow(wc, interpolation='bilinear')
+                ax.axis('off')
+                ax.set_title('WordCloud of Noun + Adjective Bigrams', fontsize=16)
+                st.pyplot(fig_wc)
+        
+        with col2:
+            # Top bigrams bar chart
+            if len(top_bigrams) > 0:
+                bigram_df = pd.DataFrame(list(top_bigrams.items()), columns=['Bigram', 'Count'])
+                bigram_df = bigram_df.sort_values('Count', ascending=True).tail(15)
+                
+                fig_bigram = px.bar(
+                    bigram_df,
+                    x='Count',
+                    y='Bigram',
+                    orientation='h',
+                    title='Top 15 Noun + Adjective Bigrams',
+                    color='Count',
+                    color_continuous_scale='viridis'
+                )
+                fig_bigram.update_layout(height=500)
+                st.plotly_chart(fig_bigram, use_container_width=True)
+    else:
+        st.warning("No bigrams found in the review data.")
+
+    # Product analysis
+    st.subheader("🛒 Product Performance Analysis")
+    
+    # Merge product data
+    product_reviews = order_items.merge(order_reviews, on='order_id', how='left')
+    product_reviews = product_reviews.merge(products, on='product_id', how='left')
+    product_reviews = product_reviews.merge(product_translation, on='product_category_name', how='left')
+    
+    # Calculate metrics by category
+    category_metrics = product_reviews.groupby('product_category_name_english').agg({
+        'order_id': 'count',
+        'review_score': 'mean'
+    }).reset_index()
+    category_metrics.columns = ['Category', 'Total_Sales', 'Avg_Review']
+    category_metrics = category_metrics.dropna().sort_values('Total_Sales', ascending=False).head(15)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("📈 Top Categories by Sales Volume")
+        fig_sales = px.bar(
+            category_metrics.head(10),
+            x='Total_Sales',
+            y='Category',
+            orientation='h',
+            title='Top 10 Categories by Sales'
+        )
+        fig_sales.update_layout(height=400)
+        st.plotly_chart(fig_sales, use_container_width=True)
+    
+    with col2:
+        st.subheader("⭐ Top Categories by Review Score")
+        fig_review = px.bar(
+            category_metrics.sort_values('Avg_Review', ascending=False).head(10),
+            x='Avg_Review',
+            y='Category',
+            orientation='h',
+            color='Avg_Review',
+            color_continuous_scale='Greens',
+            title='Top 10 Categories by Review Score'
+        )
+        fig_review.update_layout(height=400)
+        st.plotly_chart(fig_review, use_container_width=True)
 
 def menu_market_expansion(orders, customers, order_reviews):
     """Menu 3: Market Expansion Opportunities"""
