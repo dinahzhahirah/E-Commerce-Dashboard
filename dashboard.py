@@ -421,11 +421,6 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
     
     df = st.session_state.df
     
-    st.subheader("Sentiment Analysis Overview")
-    
-    # Display basic sentiment statistics
-    st.subheader("Sentiment Distribution by Aspect")
-    
     # Inisialisasi VADER
     vader_analyzer = SentimentIntensityAnalyzer()
     
