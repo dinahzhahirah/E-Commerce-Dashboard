@@ -313,7 +313,7 @@ def menu_delivery_evaluation(orders, customers, geolocation):
     state_metrics['Delay_Percentage'] = state_metrics['Delay_Percentage'] * 100
     state_metrics = state_metrics.dropna()
 
-    # Merge with geolocation data
+    # Ambil rata-rata lat/lon per provinsi dari geolocation
     geo_avg = geolocation.groupby('geolocation_state').agg({
         'geolocation_lat': 'mean',
         'geolocation_lng': 'mean'
@@ -323,51 +323,125 @@ def menu_delivery_evaluation(orders, customers, geolocation):
     # Merge metrics with geo
     state_metrics_geo = state_metrics.merge(geo_avg, on='State', how='left').dropna(subset=['Lat', 'Lon'])
 
-    # Create scatter map
-    if len(state_metrics_geo) > 0:
-        fig_map = px.scatter_mapbox(
-            state_metrics_geo,
-            lat='Lat',
-            lon='Lon',
-            size='Total_Orders',
-            color='Avg_Delay_Days',
-            hover_name='State',
-            hover_data=['Total_Orders', 'Avg_Delay_Days', 'Delay_Percentage'],
-            color_continuous_scale='RdYlBu_r',
-            mapbox_style='carto-positron',
-            zoom=3,
-            center={"lat": -14.2350, "lon": -51.9253},
-            title='Average Delivery Delay by State'
-        )
+    # Mapping kode provinsi ke nama lengkap
+    state_name_map = {
+        'AC': 'Acre', 'AL': 'Alagoas', 'AP': 'Amapá', 'AM': 'Amazonas', 'BA': 'Bahia',
+        'CE': 'Ceará', 'DF': 'Distrito Federal', 'ES': 'Espírito Santo', 'GO': 'Goiás',
+        'MA': 'Maranhão', 'MT': 'Mato Grosso', 'MS': 'Mato Grosso do Sul', 'MG': 'Minas Gerais',
+        'PA': 'Pará', 'PB': 'Paraíba', 'PR': 'Paraná', 'PE': 'Pernambuco', 'PI': 'Piauí',
+        'RJ': 'Rio de Janeiro', 'RN': 'Rio Grande do Norte', 'RS': 'Rio Grande do Sul',
+        'RO': 'Rondônia', 'RR': 'Roraima', 'SC': 'Santa Catarina', 'SP': 'São Paulo',
+        'SE': 'Sergipe', 'TO': 'Tocantins'
+    }
+    state_metrics_geo['State_Full'] = state_metrics_geo['State'].map(state_name_map)
 
-        fig_map.update_layout(
-            height=600,
-            margin={"r": 0, "t": 40, "l": 0, "b": 0}
-        )
+    # Format angka untuk tooltip
+    state_metrics_geo['Total_Orders_fmt'] = state_metrics_geo['Total_Orders'].astype(int)
+    state_metrics_geo['Avg_Delay_Days_fmt'] = state_metrics_geo['Avg_Delay_Days'].round(2)
+    state_metrics_geo['Delay_Percentage_fmt'] = state_metrics_geo['Delay_Percentage'].round(2)
 
-        st.plotly_chart(fig_map, use_container_width=True)
-
-    # Bar chart
-    fig_delay = px.bar(
-        state_metrics.sort_values('Avg_Delay_Days', ascending=True).head(15),
-        x='Avg_Delay_Days',
-        y='State',
-        orientation='h',
-        color='Avg_Delay_Days',
-        color_continuous_scale='RdYlBu_r',
-        title='Top 15 States by Average Delivery Delay'
+    # Hover text
+    state_metrics_geo['hover_text'] = (
+        state_metrics_geo['State_Full'] + "<br>" +
+        "Total orders: " + state_metrics_geo['Total_Orders_fmt'].astype(str) + "<br>" +
+        "Average delivery delays: " + state_metrics_geo['Avg_Delay_Days_fmt'].astype(str) + " days<br>" +
+        "Delay percentage: " + state_metrics_geo['Delay_Percentage_fmt'].astype(str) + "%"
     )
 
-    fig_delay.update_layout(height=500)
+    # GeoJSON URL
+    geojson_url = 'https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson'
+
+    # Choropleth map
+    fig_map = px.choropleth_mapbox(
+        state_metrics_geo,
+        geojson=geojson_url,
+        locations='State_Full',
+        featureidkey='properties.name',
+        color='Avg_Delay_Days',
+        color_continuous_scale='Reds_r',
+        range_color=[state_metrics_geo['Avg_Delay_Days'].min(), 0],
+        mapbox_style='carto-positron',
+        zoom=3,
+        center={"lat": -14.2350, "lon": -51.9253},
+        opacity=0.7,
+        title='Average Delivery Delay by State',
+        custom_data=['hover_text']  # <--- KUNCI!
+    )
+
+    # Tooltip tampil sesuai format custom
+    fig_map.update_traces(
+        hovertemplate="%{customdata[0]}"
+    )
+
+    fig_map.update_layout(
+        height=600,
+        margin={"r": 0, "t": 40, "l": 0, "b": 0}
+    )
+
+    # Tampilkan di Streamlit
+    st.plotly_chart(fig_map, use_container_width=True)
+
+    # Bar chart di bawah map
+    fig_delay = px.bar(
+        state_metrics_geo.sort_values('Avg_Delay_Days', ascending=True).head(15).iloc[::-1],
+        x='Avg_Delay_Days',
+        y='State_Full',
+        orientation='h',
+        color='Avg_Delay_Days',
+        color_continuous_scale='Reds',
+        title='Top 15 States by Average Delivery Delay',
+        labels={
+            'State_Full': 'State',
+            'Avg_Delay_Days': 'Average Delivery Delay (days)'
+        },
+        range_color=[-20, -10],
+        text='Avg_Delay_Days'  # <-- label angka di bar
+    )
+
+    fig_delay.update_layout(
+        height=500,
+        margin=dict(l=120),  # tambah margin kiri agar label tidak terpotong
+        coloraxis_colorbar=dict(
+            title='Average Delivery Delay',
+            tickvals=[-20, -18, -16, -14, -12, -10][::-1],
+            ticktext=[str(i) for i in [-20, -18, -16, -14, -12, -10][::-1]]
+        )
+    )
+    fig_delay.update_traces(
+        marker=dict(line=dict(width=0)),
+        textposition='auto',  # biar plotly atur posisi label
+        texttemplate='%{text:.2f}',  # format angka
+        textfont_size=12       # font lebih kecil jika perlu
+    )
+    fig_delay.update_coloraxes(reversescale=True)
     st.plotly_chart(fig_delay, use_container_width=True)
 
     # Insights
     st.subheader("🔍 Key Insights:")
-    
+
     problematic_states = state_metrics[state_metrics['Avg_Delay_Days'] > 3].head(5)
+    high_volume_delayed = state_metrics[(state_metrics['Total_Orders'] > 1000) & (state_metrics['Avg_Delay_Days'] > 2)].head(3)
+
+    insights = []
     if len(problematic_states) > 0:
         states_list = ", ".join(problematic_states['State'].tolist())
-        st.write(f"🚨 States with delays > 3 days: {states_list}")
+        insights.append(f"🚨 Provinsi dengan keterlambatan > 3 hari: {states_list} → Evaluasi mitra logistik lokal")
+
+    if len(high_volume_delayed) > 0:
+        hv_states = ", ".join(high_volume_delayed['State'].tolist())
+        insights.append(f"⚠️ Volume pesanan tinggi dengan keterlambatan: {hv_states} → Risiko churn pelanggan")
+
+    best_performers = state_metrics[state_metrics['Avg_Delay_Days'] < 1].head(3)
+    if len(best_performers) > 0:
+        best_states = ", ".join(best_performers['State'].tolist())
+        insights.append(f"✅ Provinsi dengan performa bagus: {best_states} → Referensi praktik terbaik")
+
+    for insight in insights:
+        st.write(f"• {insight}")
+
+    st.subheader("🎯 Dampak Bisnis:")
+    st.write("• **Langsung mengurangi keluhan pelanggan**, meningkatkan loyalitas")
+    st.write("• **Optimalkan biaya logistik**, alokasikan ulang sumber daya ke wilayah bermasalah")
 
 def menu_sentiment_analysis(order_reviews, order_items, products, product_translation, nlp, stop_words):
     """Menu 2: Sentiment Analysis"""
