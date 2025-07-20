@@ -590,32 +590,47 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
         'review_score': 'mean'
     }).reset_index()
     category_metrics.columns = ['Category', 'Total_Sales', 'Avg_Review']
-    category_metrics = category_metrics.dropna().sort_values('Total_Sales', ascending=False).head(15)
+    category_metrics = category_metrics.dropna()
     
+    # Prepare Top 10 Sales (sorted descending)
+    top_sales = category_metrics.sort_values('Total_Sales', ascending=False).head(10)
+    top_sales = top_sales.sort_values('Total_Sales', ascending=True)  # so largest at top (horizontal bar)
+    
+    # Prepare Top 10 Reviews (sorted descending)
+    top_review = category_metrics.sort_values('Avg_Review', ascending=False).head(10)
+    top_review = top_review.sort_values('Avg_Review', ascending=True)  # so highest at top
+    
+    # Layout with two columns
     col1, col2 = st.columns(2)
     
     with col1:
         fig_sales = px.bar(
-            category_metrics.head(10),
+            top_sales,
             x='Total_Sales',
             y='Category',
             orientation='h',
-            title='Top 10 Categories by Sales'
+            text='Total_Sales',
+            title='Top 10 Categories by Sales',
+            color='Total_Sales',
+            color_continuous_scale='Blues'
         )
-        fig_sales.update_layout(height=400)
+        fig_sales.update_traces(textposition='inside', textfont_color='white')
+        fig_sales.update_layout(height=400, yaxis=dict(title=None))
         st.plotly_chart(fig_sales, use_container_width=True)
     
     with col2:
         fig_review = px.bar(
-            category_metrics.sort_values('Avg_Review', ascending=False).head(10),
+            top_review,
             x='Avg_Review',
             y='Category',
             orientation='h',
+            text=top_review['Avg_Review'].round(2),
+            title='Top 10 Categories by Review Score',
             color='Avg_Review',
-            color_continuous_scale='Greens',
-            title='Top 10 Categories by Review Score'
+            color_continuous_scale='Greens'
         )
-        fig_review.update_layout(height=400)
+        fig_review.update_traces(textposition='inside', textfont_color='black')
+        fig_review.update_layout(height=400, yaxis=dict(title=None), coloraxis_showscale=False)
         st.plotly_chart(fig_review, use_container_width=True)
 
 def menu_market_expansion(orders, customers, order_reviews):
