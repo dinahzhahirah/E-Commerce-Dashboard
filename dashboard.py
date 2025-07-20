@@ -69,31 +69,121 @@ def get_portuguese_stopwords():
 
 @st.cache_data
 def load_data():
-    """Load all datasets"""
+    """Load all datasets from Google Drive"""
     try:
         # Check if data directory exists, if not create it and download
         if not os.path.exists('data') or not os.listdir('data'):
-            st.info("Downloading data files...")
+            st.info("Downloading data files from Google Drive...")
             
             # Create data directory if it doesn't exist
             os.makedirs('data', exist_ok=True)
             
-            # Try to download data (this part may need adjustment based on actual data source)
-            try:
-                url = "https://drive.google.com/uc?id=YOUR_DRIVE_FILE_ID"  # Replace with actual file ID
-                output = "data.zip"
+            # Download individual files from Google Drive
+            # Note: You need to make each file publicly accessible and get the file ID from sharing URL
+            files_to_download = {
+                'customers_dataset.csv': '1MbHCiu8ZbJies0NQ0sTCV4_rESKuDvnJ',
+                'geolocation_dataset.csv': '1VK7B0Cm9RQmJIKljrvVirphZiTEZFdhH', 
+                'order_items_dataset.csv': '1TNfwU1jvMKNaLDRYpA9TDvU77gaAQDmT',
+                'order_payments_dataset.csv': '14b96-g7a2rnM47Ml9axgbcyGMmziW5Md',
+                'order_reviews_dataset.csv': '1hPfX7FO6jHW171FYeTN4QS39hS0K_4CX',
+                'orders_dataset.csv': '1dPxq9qXTSZjrdXQk8IJE3i4U9EEveuw0',
+                'product_category_name_translation.csv': '1H-loSFk7Ef4C6ikjcseb5_kGj7uZ3__l',
+                'products_dataset.csv': '1N8KxKyxHtvae_Gyw6d8btBZBUMxqVRC2',
+                'sellers_dataset.csv': '1DAhnXFWFLy84dgsGkCapZB5_2c9x4F_U'
+            }
+            
+            # Download each file
+            for filename, file_id in files_to_download.items():
+                try:
+                    if file_id != 'REPLACE_WITH_ACTUAL_FILE_ID':  # Only download if ID is provided
+                        url = f"https://drive.google.com/uc?id={file_id}"
+                        output_path = f"data/{filename}"
+                        gdown.download(url, output_path, quiet=False)
+                        st.success(f"Downloaded {filename}")
+                    else:
+                        st.warning(f"File ID not provided for {filename}")
+                except Exception as e:
+                    st.error(f"Failed to download {filename}: {e}")
+            
+            st.success("Data download completed!")
+
+        # Load datasets
+        datasets = {}
+        required_files = [
+            'customers_dataset.csv',
+            'geolocation_dataset.csv', 
+            'order_items_dataset.csv',
+            'order_payments_dataset.csv',
+            'order_reviews_dataset.csv',
+            'orders_dataset.csv',
+            'product_category_name_translation.csv',
+            'products_dataset.csv',
+            'sellers_dataset.csv'
+        ]
+        
+        # Check if all required files exist
+        missing_files = []
+        for filename in required_files:
+            filepath = f'data/{filename}'
+            if not os.path.exists(filepath):
+                missing_files.append(filename)
+        
+        if missing_files:
+            st.error(f"Missing required files: {', '.join(missing_files)}")
+            st.info("Please download the files manually and place them in the 'data' directory, or provide the correct Google Drive file IDs.")
+            return None
+        
+        # Load all datasets
+        st.info("Loading datasets...")
+        customers = pd.read_csv('data/customers_dataset.csv')
+        geolocation = pd.read_csv('data/geolocation_dataset.csv')
+        order_items = pd.read_csv('data/order_items_dataset.csv')
+        order_payments = pd.read_csv('data/order_payments_dataset.csv')
+        order_reviews = pd.read_csv('data/order_reviews_dataset.csv')
+        orders = pd.read_csv('data/orders_dataset.csv')
+        product_translation = pd.read_csv('data/product_category_name_translation.csv')
+        products = pd.read_csv('data/products_dataset.csv')
+        sellers = pd.read_csv('data/sellers_dataset.csv')
+        
+        st.success("All datasets loaded successfully!")
+        
+        return orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers
+        
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        st.info("Please make sure all data files are in the 'data' directory")
+        return None
+
+# Alternative function if you want to download the entire folder as a ZIP
+@st.cache_data 
+def load_data_from_zip():
+    """Load data by downloading ZIP file containing all datasets"""
+    try:
+        if not os.path.exists('data') or not os.listdir('data'):
+            st.info("Downloading data ZIP file...")
+            
+            os.makedirs('data', exist_ok=True)
+            
+            # If you have a ZIP file containing all CSV files, use this approach
+            # You need to create a ZIP file of your data folder and get its shareable link
+            zip_file_id = "REPLACE_WITH_ZIP_FILE_ID"  # Get this from your ZIP file's share link
+            
+            if zip_file_id != "REPLACE_WITH_ZIP_FILE_ID":
+                url = f"https://drive.google.com/uc?id={zip_file_id}"
+                output = "brazilian_ecommerce_data.zip"
+                
                 gdown.download(url, output, quiet=False)
                 
-                # Extract zip
+                # Extract ZIP file
                 with zipfile.ZipFile(output, 'r') as zip_ref:
                     zip_ref.extractall("data")
                 
-                os.remove(output)  # Clean up zip file
-            except:
-                st.warning("Could not download data automatically. Please ensure data files are in the 'data' directory.")
-                return None
-
-        # Load datasets
+                os.remove(output)  # Clean up ZIP file
+                st.success("Data extracted successfully!")
+            else:
+                st.warning("ZIP file ID not provided. Please upload files manually to 'data' directory.")
+        
+        # Load datasets (same as above)
         orders = pd.read_csv('data/orders_dataset.csv')
         customers = pd.read_csv('data/customers_dataset.csv')
         order_items = pd.read_csv('data/order_items_dataset.csv')
@@ -105,6 +195,7 @@ def load_data():
         sellers = pd.read_csv('data/sellers_dataset.csv')
 
         return orders, customers, order_items, order_payments, order_reviews, products, product_translation, geolocation, sellers
+        
     except Exception as e:
         st.error(f"Error loading data: {e}")
         st.info("Please make sure all data files are in the 'data' directory")
