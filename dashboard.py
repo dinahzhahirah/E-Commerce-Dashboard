@@ -711,9 +711,6 @@ def main():
     # Extract noun + adjective bigrams
     df['noun_adj_bigrams'] = df['tokens'].apply(lambda tokens: extract_noun_adj_bigrams(tokens, nlp))
 
-    st.write("Sample tokens:", df['tokens'].head(5))
-    st.write("Sample bigrams:", df['noun_adj_bigrams'].head(5))
-
     # Save to session_state
     st.session_state.df = df
 
