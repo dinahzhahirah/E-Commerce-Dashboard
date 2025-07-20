@@ -412,6 +412,9 @@ def menu_delivery_evaluation(orders, customers, geolocation):
         textfont_size=11
     )
     
+    # Update colorscale agar Acre (yang terburuk) berwarna merah pekat
+    fig_delay_worst.update_coloraxes(reversescale=True)
+    
     st.plotly_chart(fig_delay_worst, use_container_width=True)
 
     # Bar chart TOP 5 States dengan Average Delivery Delay TERENDAH (paling mendekati 0)
