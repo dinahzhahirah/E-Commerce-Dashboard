@@ -385,7 +385,7 @@ def menu_delivery_evaluation(orders, customers, geolocation):
     top5_worst = state_metrics_geo.sort_values('Avg_Delay_Days', ascending=True).head(5)  # ascending=True karena nilai negatif, yang terkecil = terjauh dari 0
     
     fig_delay_worst = px.bar(
-        top5_worst.sort_values('Avg_Delay_Days', ascending=True),  # sort ascending untuk tampil dari kecil ke besar
+        top5_worst.sort_values('Avg_Delay_Days', ascending=False),  # sort descending untuk tampil Acre di atas (yang terburuk)
         x='Avg_Delay_Days',
         y='State_Full',
         orientation='h',
@@ -418,7 +418,7 @@ def menu_delivery_evaluation(orders, customers, geolocation):
     top5_best = state_metrics_geo.sort_values('Avg_Delay_Days', ascending=False).head(5)  # ascending=False karena nilai negatif, yang terbesar = terdekat ke 0
     
     fig_delay_best = px.bar(
-        top5_best.sort_values('Avg_Delay_Days', ascending=False),  # sort descending untuk tampil dari besar ke kecil
+        top5_best.sort_values('Avg_Delay_Days', ascending=True),  # sort ascending untuk tampil dari yang terdekat 0 di atas
         x='Avg_Delay_Days',
         y='State_Full',
         orientation='h',
