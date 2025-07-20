@@ -198,24 +198,26 @@ def clean_text(text, stop_words):
 
 def extract_noun_adj_bigrams(tokens, nlp):
     """Extract noun + adjective bigrams using spaCy or fallback"""
-    if not tokens:
+    if not tokens or nlp is None:
         return []
 
     try:
-        if isinstance(nlp, FallbackNLP):
-            # Fallback: ambil semua pasangan 2 kata (asal panjang token > 1)
+        # Fallback mode: detect manually
+        if type(nlp).__name__ == "FallbackNLP":
+            # Ambil semua pasangan 2 kata berturut-turut
             return [f"{tokens[i]} {tokens[i+1]}" for i in range(len(tokens)-1)]
-        else:
-            text = " ".join(tokens)
-            doc = nlp(text)
-            bigrams = []
-            for i in range(len(doc) - 1):
-                token1 = doc[i]
-                token2 = doc[i + 1]
-                if token1.pos_ in ["NOUN", "PROPN"] and token2.pos_ in ["ADJ", "ADV"]:
-                    bigrams.append(f"{token1.text} {token2.text}")
-            return bigrams
-    except:
+
+        # Jika spaCy beneran jalan
+        text = " ".join(tokens)
+        doc = nlp(text)
+        bigrams = []
+        for i in range(len(doc) - 1):
+            token1 = doc[i]
+            token2 = doc[i + 1]
+            if token1.pos_ in ["NOUN", "PROPN"] and token2.pos_ in ["ADJ", "ADV"]:
+                bigrams.append(f"{token1.text} {token2.text}")
+        return bigrams
+    except Exception as e:
         return []
 
 def display_kpi_summary(orders, order_reviews, order_payments):
