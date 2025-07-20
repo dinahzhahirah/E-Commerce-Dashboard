@@ -518,7 +518,8 @@ def menu_sentiment_analysis(order_reviews, order_items, products, product_transl
             return hasil
 
         # Process ABSA
-        df["aspek_sentimen"] = df["review_comment_message"].apply(klasifikasi_sentimen)
+        sentiment_pipeline = load_absa_model()  # Tambahkan ini sebelum dipakai
+        df["aspek_sentimen"] = df["review_comment_message"].apply(lambda x: klasifikasi_sentimen_absa(x, sentiment_pipeline))
 
         # Calculate aspect counts
         aspect_counts = {
@@ -756,5 +757,4 @@ def main():
 st.sidebar.markdown("---")
 st.sidebar.markdown("Kangturu  \nSSDC2025002")
 
-if __name__ == "__main__":
     main()
