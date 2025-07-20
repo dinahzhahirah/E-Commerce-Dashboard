@@ -757,4 +757,5 @@ def main():
 st.sidebar.markdown("---")
 st.sidebar.markdown("Kangturu  \nSSDC2025002")
 
+if __name__ == "__main__":
     main()
