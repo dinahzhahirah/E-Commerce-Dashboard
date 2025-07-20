@@ -758,9 +758,4 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("Kangturu  \nSSDC2025002")
 
 if __name__ == "__main__":
-    st.set_page_config(
-        page_title="E-commerce Analytics Dashboard", 
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
     main()
